@@ -115,7 +115,7 @@ pub const ElfDynLib = struct {
 
     /// Trusts the file. Malicious file will be able to execute arbitrary code.
     pub fn open(path: []const u8) !ElfDynLib {
-        const fd = try os.open(path, 0, os.O.RDONLY | os.O.CLOEXEC);
+        const fd = try os.open(path, .{ .ACCMODE = .RDONLY, .CLOEXEC = true }, 0);
         defer os.close(fd);
 
         const stat = try os.fstat(fd);
@@ -127,7 +127,7 @@ pub const ElfDynLib = struct {
             null,
             mem.alignForward(usize, size, mem.page_size),
             os.PROT.READ,
-            os.MAP.PRIVATE,
+            .{ .TYPE = .PRIVATE },
             fd,
             0,
         );
@@ -165,7 +165,7 @@ pub const ElfDynLib = struct {
             null,
             virt_addr_end,
             os.PROT.NONE,
-            os.MAP.PRIVATE | os.MAP.ANONYMOUS,
+            .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
             -1,
             0,
         );
@@ -197,7 +197,7 @@ pub const ElfDynLib = struct {
                                 ptr,
                                 extended_memsz,
                                 prot,
-                                os.MAP.PRIVATE | os.MAP.FIXED,
+                                .{ .TYPE = .PRIVATE, .FIXED = true },
                                 fd,
                                 ph.p_offset - extra_bytes,
                             );
@@ -206,7 +206,7 @@ pub const ElfDynLib = struct {
                                 ptr,
                                 extended_memsz,
                                 prot,
-                                os.MAP.PRIVATE | os.MAP.FIXED | os.MAP.ANONYMOUS,
+                                .{ .TYPE = .PRIVATE, .FIXED = true, .ANONYMOUS = true },
                                 -1,
                                 0,
                             );
@@ -320,16 +320,28 @@ pub const WindowsDynLib = struct {
     dll: windows.HMODULE,
 
     pub fn open(path: []const u8) !WindowsDynLib {
+        return openEx(path, .none);
+    }
+
+    pub fn openEx(path: []const u8, flags: windows.LoadLibraryFlags) !WindowsDynLib {
         const path_w = try windows.sliceToPrefixedFileW(null, path);
-        return openW(path_w.span().ptr);
+        return openExW(path_w.span().ptr, flags);
     }
 
     pub fn openZ(path_c: [*:0]const u8) !WindowsDynLib {
+        return openExZ(path_c, .none);
+    }
+
+    pub fn openExZ(path_c: [*:0]const u8, flags: windows.LoadLibraryFlags) !WindowsDynLib {
         const path_w = try windows.cStrToPrefixedFileW(null, path_c);
-        return openW(path_w.span().ptr);
+        return openExW(path_w.span().ptr, flags);
     }
 
     pub fn openW(path_w: [*:0]const u16) !WindowsDynLib {
+        return openExW(path_w, .none);
+    }
+
+    pub fn openExW(path_w: [*:0]const u16, flags: windows.LoadLibraryFlags) !WindowsDynLib {
         var offset: usize = 0;
         if (path_w[0] == '\\' and path_w[1] == '?' and path_w[2] == '?' and path_w[3] == '\\') {
             // + 4 to skip over the \??\
@@ -337,7 +349,7 @@ pub const WindowsDynLib = struct {
         }
 
         return WindowsDynLib{
-            .dll = try windows.LoadLibraryW(path_w + offset),
+            .dll = try windows.LoadLibraryExW(path_w + offset, flags),
         };
     }
 

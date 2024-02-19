@@ -33,14 +33,12 @@ if(LLVM_BUILD_LLVM_DYLIB)
   add_llvm_library(LLVM SHARED DISABLE_LLVM_LINK_LLVM_DYLIB SONAME ${INSTALL_WITH_TOOLCHAIN} ${SOURCES})
 
   list(REMOVE_DUPLICATES LIB_NAMES)
-  if((MINGW) OR (HAIKU)
-     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "GNU")
+  if(("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux") OR (MINGW) OR (HAIKU)
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
-     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "NetBSD")
+     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "GNU")
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "OpenBSD")
-     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "DragonFly")
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "Fuchsia")
+     OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "DragonFly")
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")) # FIXME: It should be "GNU ld for elf"
     configure_file(
@@ -58,7 +56,7 @@ if(LLVM_BUILD_LLVM_DYLIB)
       # reduce dynamic relocations.
       # Note: for -fno-pic default, the address of a function may be different from
       # inside and outside libLLVM.so.
-      target_link_options(LLVM PRIVATE LINKER:-Bsymbolic-functions)
+      target_link_options(LLVM PRIVATE LINKER:-shared)
     endif()
   elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
     set(LIB_NAMES -Wl,-all_load ${LIB_NAMES})

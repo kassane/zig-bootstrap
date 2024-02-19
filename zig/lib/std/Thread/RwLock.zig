@@ -264,7 +264,7 @@ test "DefaultRwLock - internal state" {
     try testing.expectEqual(rwl, DefaultRwLock{});
 }
 
-test "RwLock - smoke test" {
+test "smoke test" {
     var rwl = RwLock{};
 
     rwl.lock();
@@ -293,7 +293,7 @@ test "RwLock - smoke test" {
     rwl.unlock();
 }
 
-test "RwLock - concurrent access" {
+test "concurrent access" {
     if (builtin.single_threaded)
         return;
 
@@ -328,7 +328,7 @@ test "RwLock - concurrent access" {
         }
 
         fn writer(self: *Self, thread_idx: usize) !void {
-            var prng = std.rand.DefaultPrng.init(thread_idx);
+            var prng = std.Random.DefaultPrng.init(thread_idx);
             var rnd = prng.random();
 
             while (true) {

@@ -173,7 +173,7 @@ bool checkRegister(const ThumbRelocation &R, HalfWords Reg) {
 }
 
 template <EdgeKind_aarch32 Kind>
-void writeRegister(WritableThumbRelocation &R, HalfWords Reg) {
+bool writeRegister(WritableThumbRelocation &R, HalfWords Reg) {
   static constexpr HalfWords Mask = FixupInfo<Kind>::RegMask;
   assert((Mask.Hi & Reg.Hi) == Reg.Hi && (Mask.Hi & Reg.Hi) == Reg.Hi &&
          "Value bits exceed bit range of given mask");

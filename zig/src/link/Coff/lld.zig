@@ -70,7 +70,7 @@ pub fn linkWithLLD(self: *Coff, arena: Allocator, prog_node: *std.Progress.Node)
         man = comp.cache_parent.obtain();
         self.base.releaseLock();
 
-        comptime assert(Compilation.link_hash_implementation_version == 10);
+        comptime assert(Compilation.link_hash_implementation_version == 12);
 
         for (comp.objects) |obj| {
             _ = try man.addFile(obj.path, null);
@@ -408,17 +408,7 @@ pub fn linkWithLLD(self: *Coff, arena: Allocator, prog_node: *std.Progress.Node)
                             try argv.append(try comp.get_libc_crt_file(arena, "crt2.obj"));
                         }
 
-                        try argv.append(try comp.get_libc_crt_file(arena, "mingw32.lib"));
                         try argv.append(try comp.get_libc_crt_file(arena, "mingwex.lib"));
-                        try argv.append(try comp.get_libc_crt_file(arena, "msvcrt-os.lib"));
-                        try argv.append(try comp.get_libc_crt_file(arena, "uuid.lib"));
-
-                        for (mingw.always_link_libs) |name| {
-                            if (!comp.system_libs.contains(name)) {
-                                const lib_basename = try allocPrint(arena, "{s}.lib", .{name});
-                                try argv.append(try comp.get_libc_crt_file(arena, lib_basename));
-                            }
-                        }
                     } else {
                         const lib_str = switch (comp.config.link_mode) {
                             .Dynamic => "",

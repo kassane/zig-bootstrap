@@ -25,7 +25,7 @@ root_module: Module,
 
 name: []const u8,
 linker_script: ?LazyPath = null,
-version_script: ?[]const u8 = null,
+version_script: ?LazyPath = null,
 out_filename: []const u8,
 out_lib_filename: []const u8,
 linkage: ?Linkage = null,
@@ -33,6 +33,7 @@ version: ?std.SemanticVersion,
 kind: Kind,
 major_only_filename: ?[]const u8,
 name_only_filename: ?[]const u8,
+formatted_panics: ?bool = null,
 // keep in sync with src/link.zig:CompressDebugSections
 compress_debug_sections: enum { none, zlib, zstd } = .none,
 verbose_link: bool,
@@ -53,8 +54,7 @@ global_base: ?u64 = null,
 /// Set via options; intended to be read-only after that.
 zig_lib_dir: ?LazyPath,
 exec_cmd_args: ?[]const ?[]const u8,
-filter: ?[]const u8,
-test_evented_io: bool = false,
+filters: []const []const u8,
 test_runner: ?[]const u8,
 test_server_mode: bool,
 wasi_exec_model: ?std.builtin.WasiExecModel = null,
@@ -110,6 +110,9 @@ linker_dynamicbase: bool = true,
 
 linker_allow_shlib_undefined: ?bool = null,
 
+/// Allow version scripts to refer to undefined symbols.
+linker_allow_undefined_version: ?bool = null,
+
 /// Permit read-only relocations in read-only segments. Disallowed by default.
 link_z_notext: bool = false,
 
@@ -144,6 +147,9 @@ headerpad_max_install_names: bool = false,
 
 /// (Darwin) Remove dylibs that are unreachable by the entry point or exported symbols.
 dead_strip_dylibs: bool = false,
+
+/// (Darwin) Force load all members of static archives that implement an Objective-C class or category
+force_load_objc: bool = false,
 
 /// Position Independent Executable
 pie: ?bool = null,
@@ -217,7 +223,7 @@ pub const Options = struct {
     linkage: ?Linkage = null,
     version: ?std.SemanticVersion = null,
     max_rss: usize = 0,
-    filter: ?[]const u8 = null,
+    filters: []const []const u8 = &.{},
     test_runner: ?[]const u8 = null,
     use_llvm: ?bool = null,
     use_lld: ?bool = null,
@@ -304,7 +310,7 @@ pub fn create(owner: *std.Build, options: Options) *Compile {
         .installed_headers = ArrayList(*Step).init(owner.allocator),
         .zig_lib_dir = null,
         .exec_cmd_args = null,
-        .filter = options.filter,
+        .filters = options.filters,
         .test_runner = options.test_runner,
         .test_server_mode = options.test_runner == null,
         .rdynamic = false,
@@ -481,6 +487,12 @@ pub fn setLinkerScript(self: *Compile, source: LazyPath) void {
     source.addStepDependencies(&self.step);
 }
 
+pub fn setVersionScript(self: *Compile, source: LazyPath) void {
+    const b = self.step.owner;
+    self.version_script = source.dupe(b);
+    source.addStepDependencies(&self.step);
+}
+
 pub fn forceUndefinedSymbol(self: *Compile, symbol_name: []const u8) void {
     const b = self.step.owner;
     self.force_undefined_symbols.put(b.dupe(symbol_name), {}) catch @panic("OOM");
@@ -557,9 +569,14 @@ pub fn defineCMacro(c: *Compile, name: []const u8, value: ?[]const u8) void {
     c.root_module.addCMacro(name, value orelse "1");
 }
 
+const PkgConfigResult = struct {
+    cflags: []const []const u8,
+    libs: []const []const u8,
+};
+
 /// Run pkg-config for the given library name and parse the output, returning the arguments
 /// that should be passed to zig to link the given library.
-fn runPkgConfig(self: *Compile, lib_name: []const u8) ![]const []const u8 {
+fn runPkgConfig(self: *Compile, lib_name: []const u8) !PkgConfigResult {
     const b = self.step.owner;
     const pkg_name = match: {
         // First we have to map the library name to pkg config name. Unfortunately,
@@ -620,37 +637,42 @@ fn runPkgConfig(self: *Compile, lib_name: []const u8) ![]const []const u8 {
         else => return err,
     };
 
-    var zig_args = ArrayList([]const u8).init(b.allocator);
-    defer zig_args.deinit();
+    var zig_cflags = ArrayList([]const u8).init(b.allocator);
+    defer zig_cflags.deinit();
+    var zig_libs = ArrayList([]const u8).init(b.allocator);
+    defer zig_libs.deinit();
 
     var it = mem.tokenizeAny(u8, stdout, " \r\n\t");
     while (it.next()) |tok| {
         if (mem.eql(u8, tok, "-I")) {
             const dir = it.next() orelse return error.PkgConfigInvalidOutput;
-            try zig_args.appendSlice(&[_][]const u8{ "-I", dir });
+            try zig_cflags.appendSlice(&[_][]const u8{ "-I", dir });
         } else if (mem.startsWith(u8, tok, "-I")) {
-            try zig_args.append(tok);
+            try zig_cflags.append(tok);
         } else if (mem.eql(u8, tok, "-L")) {
             const dir = it.next() orelse return error.PkgConfigInvalidOutput;
-            try zig_args.appendSlice(&[_][]const u8{ "-L", dir });
+            try zig_libs.appendSlice(&[_][]const u8{ "-L", dir });
         } else if (mem.startsWith(u8, tok, "-L")) {
-            try zig_args.append(tok);
+            try zig_libs.append(tok);
         } else if (mem.eql(u8, tok, "-l")) {
             const lib = it.next() orelse return error.PkgConfigInvalidOutput;
-            try zig_args.appendSlice(&[_][]const u8{ "-l", lib });
+            try zig_libs.appendSlice(&[_][]const u8{ "-l", lib });
         } else if (mem.startsWith(u8, tok, "-l")) {
-            try zig_args.append(tok);
+            try zig_libs.append(tok);
         } else if (mem.eql(u8, tok, "-D")) {
             const macro = it.next() orelse return error.PkgConfigInvalidOutput;
-            try zig_args.appendSlice(&[_][]const u8{ "-D", macro });
+            try zig_cflags.appendSlice(&[_][]const u8{ "-D", macro });
         } else if (mem.startsWith(u8, tok, "-D")) {
-            try zig_args.append(tok);
+            try zig_cflags.append(tok);
         } else if (b.debug_pkg_config) {
             return self.step.fail("unknown pkg-config flag '{s}'", .{tok});
         }
     }
 
-    return zig_args.toOwnedSlice();
+    return .{
+        .cflags = try zig_cflags.toOwnedSlice(),
+        .libs = try zig_libs.toOwnedSlice(),
+    };
 }
 
 pub fn linkSystemLibrary(self: *Compile, name: []const u8) void {
@@ -900,7 +922,7 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
     var zig_args = ArrayList([]const u8).init(arena);
     defer zig_args.deinit();
 
-    try zig_args.append(b.zig_exe);
+    try zig_args.append(b.graph.zig_exe);
 
     const cmd = switch (self.kind) {
         .lib => "build-lib",
@@ -909,6 +931,16 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
         .@"test" => "test",
     };
     try zig_args.append(cmd);
+
+    if (!mem.eql(u8, b.graph.host_query_options.arch_os_abi, "native")) {
+        try zig_args.appendSlice(&.{ "--host-target", b.graph.host_query_options.arch_os_abi });
+    }
+    if (b.graph.host_query_options.cpu_features) |cpu| {
+        try zig_args.appendSlice(&.{ "--host-cpu", cpu });
+    }
+    if (b.graph.host_query_options.dynamic_linker) |dl| {
+        try zig_args.appendSlice(&.{ "--host-dynamic-linker", dl });
+    }
 
     if (b.reference_trace) |some| {
         try zig_args.append(try std.fmt.allocPrint(arena, "-freference-trace={d}", .{some}));
@@ -944,7 +976,10 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
     }
 
     {
-        var seen_system_libs: std.StringHashMapUnmanaged(void) = .{};
+        // Stores system libraries that have already been seen for at least one
+        // module, along with any arguments that need to be passed to the
+        // compiler for each module individually.
+        var seen_system_libs: std.StringHashMapUnmanaged([]const []const u8) = .{};
         var frameworks: std.StringArrayHashMapUnmanaged(Module.LinkFrameworkOptions) = .{};
 
         var prev_has_cflags = false;
@@ -993,13 +1028,18 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                 switch (link_object) {
                     .static_path => |static_path| {
                         if (my_responsibility) {
-                            try zig_args.append(static_path.getPath(b));
+                            try zig_args.append(static_path.getPath2(module.owner, step));
                             total_linker_objects += 1;
                         }
                     },
                     .system_lib => |system_lib| {
-                        if ((try seen_system_libs.fetchPut(arena, system_lib.name, {})) != null)
+                        const system_lib_gop = try seen_system_libs.getOrPut(arena, system_lib.name);
+                        if (system_lib_gop.found_existing) {
+                            try zig_args.appendSlice(system_lib_gop.value_ptr.*);
                             continue;
+                        } else {
+                            system_lib_gop.value_ptr.* = &.{};
+                        }
 
                         if (already_linked)
                             continue;
@@ -1034,8 +1074,10 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                         switch (system_lib.use_pkg_config) {
                             .no => try zig_args.append(b.fmt("{s}{s}", .{ prefix, system_lib.name })),
                             .yes, .force => {
-                                if (self.runPkgConfig(system_lib.name)) |args| {
-                                    try zig_args.appendSlice(args);
+                                if (self.runPkgConfig(system_lib.name)) |result| {
+                                    try zig_args.appendSlice(result.cflags);
+                                    try zig_args.appendSlice(result.libs);
+                                    try seen_system_libs.put(arena, system_lib.name, result.cflags);
                                 } else |err| switch (err) {
                                     error.PkgConfigInvalidOutput,
                                     error.PkgConfigCrashed,
@@ -1067,9 +1109,8 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                             .exe => return step.fail("cannot link with an executable build artifact", .{}),
                             .@"test" => return step.fail("cannot link with a test", .{}),
                             .obj => {
-                                const included_in_lib = !my_responsibility and
-                                    compile.kind == .lib and other.kind == .obj;
-                                if (!already_linked and !included_in_lib) {
+                                const included_in_lib_or_obj = !my_responsibility and (compile.kind == .lib or compile.kind == .obj);
+                                if (!already_linked and !included_in_lib_or_obj) {
                                     try zig_args.append(other.getEmittedBin().getPath(b));
                                     total_linker_objects += 1;
                                 }
@@ -1113,7 +1154,7 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                             try zig_args.append("--");
                             prev_has_cflags = false;
                         }
-                        try zig_args.append(asm_file.getPath(b));
+                        try zig_args.append(asm_file.getPath2(module.owner, step));
                         total_linker_objects += 1;
                     },
 
@@ -1134,7 +1175,7 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                             try zig_args.append("--");
                             prev_has_cflags = true;
                         }
-                        try zig_args.append(c_source_file.file.getPath(b));
+                        try zig_args.append(c_source_file.file.getPath2(module.owner, step));
                         total_linker_objects += 1;
                     },
 
@@ -1156,15 +1197,11 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                             prev_has_cflags = true;
                         }
 
-                        if (c_source_files.dependency) |dep| {
-                            for (c_source_files.files) |file| {
-                                try zig_args.append(dep.builder.pathFromRoot(file));
-                            }
-                        } else {
-                            for (c_source_files.files) |file| {
-                                try zig_args.append(b.pathFromRoot(file));
-                            }
+                        const root_path = c_source_files.root.getPath2(module.owner, step);
+                        for (c_source_files.files) |file| {
+                            try zig_args.append(b.pathJoin(&.{ root_path, file }));
                         }
+
                         total_linker_objects += c_source_files.files.len;
                     },
 
@@ -1185,7 +1222,7 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                             try zig_args.append("--");
                             prev_has_rcflags = true;
                         }
-                        try zig_args.append(rc_source_file.file.getPath(b));
+                        try zig_args.append(rc_source_file.file.getPath2(module.owner, step));
                         total_linker_objects += 1;
                     },
                 }
@@ -1211,15 +1248,18 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
                     }
                 }
 
-                // The CLI assumes if it sees a --mod argument that it is a zig
-                // compilation unit. If there is no root source file, then this
-                // is not a zig compilation unit - it is perhaps a set of
-                // linker objects, or C source files instead.
-                // In such case, there will be only one module, so we can leave
-                // off the naming here.
+                // When the CLI sees a -M argument, it determines whether it
+                // implies the existence of a Zig compilation unit based on
+                // whether there is a root source file. If there is no root
+                // source file, then this is not a zig compilation unit - it is
+                // perhaps a set of linker objects, or C source files instead.
+                // Linker objects are added to the CLI globally, while C source
+                // files must have a module parent.
                 if (module.root_source_file) |lp| {
                     const src = lp.getPath2(module.owner, step);
-                    try zig_args.appendSlice(&.{ "--mod", module_cli_name, src });
+                    try zig_args.append(b.fmt("-M{s}={s}", .{ module_cli_name, src }));
+                } else if (moduleNeedsCliArg(module)) {
+                    try zig_args.append(b.fmt("-M{s}", .{module_cli_name}));
                 }
             }
         }
@@ -1257,13 +1297,9 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
         try zig_args.append(b.fmt("0x{x}", .{image_base}));
     }
 
-    if (self.filter) |filter| {
+    for (self.filters) |filter| {
         try zig_args.append("--test-filter");
         try zig_args.append(filter);
-    }
-
-    if (self.test_evented_io) {
-        try zig_args.append("--test-evented-io");
     }
 
     if (self.test_runner) |test_runner| {
@@ -1295,6 +1331,8 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
     if (self.generated_llvm_bc != null) try zig_args.append("-femit-llvm-bc");
     if (self.generated_llvm_ir != null) try zig_args.append("-femit-llvm-ir");
     if (self.generated_h != null) try zig_args.append("-femit-h");
+
+    try addFlag(&zig_args, "formatted-panics", self.formatted_panics);
 
     switch (self.compress_debug_sections) {
         .none => {},
@@ -1356,7 +1394,7 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
     try zig_args.append(b.cache_root.path orelse ".");
 
     try zig_args.append("--global-cache-dir");
-    try zig_args.append(b.global_cache_root.path orelse ".");
+    try zig_args.append(b.graph.global_cache_root.path orelse ".");
 
     try zig_args.append("--name");
     try zig_args.append(self.name);
@@ -1398,6 +1436,9 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
     }
     if (self.dead_strip_dylibs) {
         try zig_args.append("-dead_strip_dylibs");
+    }
+    if (self.force_load_objc) {
+        try zig_args.append("-ObjC");
     }
 
     try addFlag(&zig_args, "compiler-rt", self.bundle_compiler_rt);
@@ -1443,7 +1484,10 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
 
     if (self.version_script) |version_script| {
         try zig_args.append("--version-script");
-        try zig_args.append(b.pathFromRoot(version_script));
+        try zig_args.append(version_script.getPath(b));
+    }
+    if (self.linker_allow_undefined_version) |x| {
+        try zig_args.append(if (x) "--undefined-version" else "--no-undefined-version");
     }
 
     if (self.kind == .@"test") {
@@ -1835,4 +1879,11 @@ fn matchCompileError(actual: []const u8, expected: []const u8) bool {
 pub fn rootModuleTarget(c: *Compile) std.Target {
     // The root module is always given a target, so we know this to be non-null.
     return c.root_module.resolved_target.?.result;
+}
+
+fn moduleNeedsCliArg(mod: *const Module) bool {
+    return for (mod.link_objects.items) |o| switch (o) {
+        .c_source_file, .c_source_files, .assembly_file, .win32_resource_file => break true,
+        else => continue,
+    } else false;
 }

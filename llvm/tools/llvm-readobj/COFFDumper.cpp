@@ -940,34 +940,36 @@ void COFFDumper::printCOFFLoadConfig() {
       OS << " flags " << utohexstr(Flags);
   };
 
-  // The stride gives the number of extra bytes in addition to the 4-byte
-  // RVA of each entry in the table. As of writing only a 1-byte extra flag
-  // has been defined.
-  uint32_t Stride = Tables.GuardFlags >> 28;
-  PrintExtraCB PrintExtra = Stride == 1 ? +PrintGuardFlags : nullptr;
-
   if (Tables.GuardFidTableVA) {
     ListScope LS(W, "GuardFidTable");
-    printRVATable(Tables.GuardFidTableVA, Tables.GuardFidTableCount,
-                  4 + Stride, PrintExtra);
+    if (uint32_t Size =
+            Tables.GuardFlags &
+            uint32_t(COFF::GuardFlags::CF_FUNCTION_TABLE_SIZE_MASK)) {
+      // The size mask gives the number of extra bytes in addition to the 4-byte
+      // RVA of each entry in the table. As of writing only a 1-byte extra flag
+      // has been defined.
+      Size = (Size >> 28) + 4;
+      printRVATable(Tables.GuardFidTableVA, Tables.GuardFidTableCount, Size,
+                    PrintGuardFlags);
+    } else {
+      printRVATable(Tables.GuardFidTableVA, Tables.GuardFidTableCount, 4);
+    }
   }
 
   if (Tables.GuardIatTableVA) {
     ListScope LS(W, "GuardIatTable");
-    printRVATable(Tables.GuardIatTableVA, Tables.GuardIatTableCount,
-                  4 + Stride, PrintExtra);
+    printRVATable(Tables.GuardIatTableVA, Tables.GuardIatTableCount, 4);
   }
 
   if (Tables.GuardLJmpTableVA) {
     ListScope LS(W, "GuardLJmpTable");
-    printRVATable(Tables.GuardLJmpTableVA, Tables.GuardLJmpTableCount,
-                  4 + Stride, PrintExtra);
+    printRVATable(Tables.GuardLJmpTableVA, Tables.GuardLJmpTableCount, 4);
   }
 
   if (Tables.GuardEHContTableVA) {
     ListScope LS(W, "GuardEHContTable");
-    printRVATable(Tables.GuardEHContTableVA, Tables.GuardEHContTableCount,
-                  4 + Stride, PrintExtra);
+    printRVATable(Tables.GuardEHContTableVA, Tables.GuardEHContTableCount, 5,
+                  PrintGuardFlags);
   }
 }
 

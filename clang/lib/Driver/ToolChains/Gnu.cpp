@@ -1737,11 +1737,16 @@ static void findRISCVBareMetalMultilibs(const Driver &D,
   // currently only support the set of multilibs like riscv-gnu-toolchain does.
   // TODO: support MULTILIB_REUSE
   constexpr RiscvMultilib RISCVMultilibSet[] = {
-      {"rv32i", "ilp32"},     {"rv32im", "ilp32"},     {"rv32iac", "ilp32"},
-      {"rv32imac", "ilp32"},  {"rv32imafc", "ilp32f"}, {"rv64imac", "lp64"},
-      {"rv64imafdc", "lp64d"}};
+      {"rv32i", "ilp32"},   {"rv32im", "ilp32"},    {"rv32iac", "ilp32"},
+      {"rv32imc", "ilp32"}, {"rv32imac", "ilp32"},  {"rv32imafc", "ilp32f"},
+      {"rv64imac", "lp64"}, {"rv64imafdc", "lp64d"},
+      // Add ISA 2.1 naming variants to support more modern GCC installations
+      {"rv32i_zicsr_zifencei", "ilp32"},   {"rv32im_zicsr_zifencei", "ilp32"},    {"rv32iac_zicsr_zifencei", "ilp32"},
+      {"rv32imc_zicsr_zifencei", "ilp32"}, {"rv32imac_zicsr_zifencei", "ilp32"},  {"rv32imafc_zicsr_zifencei", "ilp32f"},
+      {"rv64imac_zicsr_zifencei", "lp64"}, {"rv64imafdc_zicsr_zifencei", "lp64d"}};
 
   std::vector<MultilibBuilder> Ms;
+
   for (auto Element : RISCVMultilibSet) {
     // multilib path rule is ${march}/${mabi}
     Ms.emplace_back(
@@ -1750,17 +1755,33 @@ static void findRISCVBareMetalMultilibs(const Driver &D,
             .flag(Twine("-march=", Element.march).str())
             .flag(Twine("-mabi=", Element.mabi).str()));
   }
-  MultilibSet RISCVMultilibs =
-      MultilibSetBuilder()
-          .Either(Ms)
-          .makeMultilibSet()
-          .FilterOut(NonExistent)
-          .setFilePathsCallback([](const Multilib &M) {
-            return std::vector<std::string>(
-                {M.gccSuffix(),
-                 "/../../../../riscv64-unknown-elf/lib" + M.gccSuffix(),
-                 "/../../../../riscv32-unknown-elf/lib" + M.gccSuffix()});
-          });
+  MultilibSet RISCVMultilibs;
+  if (TargetTriple.getVendor() == llvm::Triple::Espressif) {
+    MultilibBuilder NoRTTI = MultilibBuilder("/no-rtti").flag("-fno-rtti");
+    RISCVMultilibs = MultilibSetBuilder()
+                         .Either(Ms)
+                         .Maybe(NoRTTI)
+                         .makeMultilibSet()
+                         .FilterOut(NonExistent);
+  } else {
+    RISCVMultilibs =
+        MultilibSetBuilder().Either(Ms).makeMultilibSet().FilterOut(
+            NonExistent);
+  }
+
+  if (TargetTriple.getVendor() == llvm::Triple::Espressif) {
+    RISCVMultilibs.setFilePathsCallback([](const Multilib &M) {
+      return std::vector<std::string>(
+          {M.gccSuffix(), "/../../../../riscv32-esp-elf/lib" + M.gccSuffix()});
+    });
+  } else {
+    RISCVMultilibs.setFilePathsCallback([](const Multilib &M) {
+      return std::vector<std::string>(
+          {M.gccSuffix(),
+           "/../../../../riscv64-unknown-elf/lib" + M.gccSuffix(),
+           "/../../../../riscv32-unknown-elf/lib" + M.gccSuffix()});
+    });
+  }
 
   Multilib::flags_list Flags;
   llvm::StringSet<> Added_ABIs;
@@ -1774,6 +1795,12 @@ static void findRISCVBareMetalMultilibs(const Driver &D,
       addMultilibFlag(ABIName == Element.mabi,
                       Twine("-mabi=", Element.mabi).str().c_str(), Flags);
     }
+  }
+
+  if (TargetTriple.getVendor() == llvm::Triple::Espressif) {
+    addMultilibFlag(
+        Args.hasFlag(options::OPT_fno_rtti, options::OPT_frtti, false),
+        "-fno-rtti", Flags);
   }
 
   if (RISCVMultilibs.select(Flags, Result.SelectedMultilibs))
@@ -1820,6 +1847,46 @@ static void findRISCVMultilibs(const Driver &D,
 
   if (RISCVMultilibs.select(Flags, Result.SelectedMultilibs))
     Result.Multilibs = RISCVMultilibs;
+}
+
+static void findXtensaMultilibs(const Driver &D,
+                                const llvm::Triple &TargetTriple,
+                                StringRef Path, const ArgList &Args,
+                                DetectedMultilibs &Result) {
+  FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
+  StringRef cpu = Args.getLastArgValue(options::OPT_mcpu_EQ, "esp32");
+  bool IsESP32 = cpu.equals("esp32");
+
+  Multilib::flags_list Flags;
+
+  addMultilibFlag(
+      Args.hasFlag(options::OPT_fno_rtti, options::OPT_frtti, false),
+      "-fno-rtti", Flags);
+
+  addMultilibFlag(
+      IsESP32 && Args.hasFlag(options::OPT_mfix_esp32_psram_cache_issue,
+                              options::OPT_mfix_esp32_psram_cache_issue, false),
+      "-mfix-esp32-psram-cache-issue", Flags);
+
+  MultilibBuilder NoRTTI = MultilibBuilder("/no-rtti").flag("-fno-rtti");
+  MultilibBuilder FixPSRAM =
+      MultilibBuilder("/esp32-psram").flag("-mfix-esp32-psram-cache-issue");
+
+  MultilibSet XtensaMultilibs = MultilibSetBuilder()
+                                    .Maybe(FixPSRAM)
+                                    .Maybe(NoRTTI)
+                                    .makeMultilibSet()
+                                    .FilterOut(NonExistent);
+
+  std::string cpu_name = cpu.str();
+  XtensaMultilibs.setFilePathsCallback([cpu_name](const Multilib &M) {
+    return std::vector<std::string>(
+        {M.gccSuffix(),
+         "/../../../../xtensa-" + cpu_name + "-elf/lib" + M.gccSuffix()});
+  });
+
+  if (XtensaMultilibs.select(Flags, Result.SelectedMultilibs))
+    Result.Multilibs = XtensaMultilibs;
 }
 
 static bool findBiarchMultilibs(const Driver &D,
@@ -2400,7 +2467,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   static const char *const RISCV32LibDirs[] = {"/lib32", "/lib"};
   static const char *const RISCV32Triples[] = {"riscv32-unknown-linux-gnu",
                                                "riscv32-linux-gnu",
-                                               "riscv32-unknown-elf"};
+                                               "riscv32-unknown-elf",
+                                               "riscv32-esp-elf",
+                                               "riscv32-esp-unknown-elf"};
   static const char *const RISCV64LibDirs[] = {"/lib64", "/lib"};
   static const char *const RISCV64Triples[] = {"riscv64-unknown-linux-gnu",
                                                "riscv64-linux-gnu",
@@ -2418,6 +2487,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       "s390x-linux-gnu", "s390x-unknown-linux-gnu", "s390x-ibm-linux-gnu",
       "s390x-suse-linux", "s390x-redhat-linux"};
 
+  static const char *const XtensaLibDirs[] = {"/lib"};
+  static const char *const XtensaTriples[] = {
+      "xtensa-esp-elf", "xtensa-esp-unknown-elf"};
 
   using std::begin;
   using std::end;
@@ -2671,6 +2743,10 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     LibDirs.append(begin(SystemZLibDirs), end(SystemZLibDirs));
     TripleAliases.append(begin(SystemZTriples), end(SystemZTriples));
     break;
+  case llvm::Triple::xtensa:
+    LibDirs.append(begin(XtensaLibDirs), end(XtensaLibDirs));
+    TripleAliases.append(begin(XtensaTriples), end(XtensaTriples));
+    break;
   default:
     // By default, just rely on the standard lib directories and the original
     // triple.
@@ -2709,6 +2785,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
     findMSP430Multilibs(D, TargetTriple, Path, Args, Detected);
   } else if (TargetArch == llvm::Triple::avr) {
     // AVR has no multilibs.
+  } else if (TargetArch == llvm::Triple::xtensa) {
+    findXtensaMultilibs(D, TargetTriple, Path, Args, Detected);
   } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                   NeedsBiarchSuffix, Detected)) {
     return false;

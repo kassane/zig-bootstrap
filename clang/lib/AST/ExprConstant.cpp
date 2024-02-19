@@ -2379,15 +2379,10 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
                                   const FieldDecl *SubobjectDecl,
                                   CheckedTemporaries &CheckedTemps) {
   if (!Value.hasValue()) {
-    if (SubobjectDecl) {
-      Info.FFDiag(DiagLoc, diag::note_constexpr_uninitialized)
-          << /*(name)*/ 1 << SubobjectDecl;
-      Info.Note(SubobjectDecl->getLocation(),
-                diag::note_constexpr_subobject_declared_here);
-    } else {
-      Info.FFDiag(DiagLoc, diag::note_constexpr_uninitialized)
-          << /*of type*/ 0 << Type;
-    }
+    assert(SubobjectDecl && "SubobjectDecl shall be non-null");
+    Info.FFDiag(DiagLoc, diag::note_constexpr_uninitialized) << SubobjectDecl;
+    Info.Note(SubobjectDecl->getLocation(),
+              diag::note_constexpr_subobject_declared_here);
     return false;
   }
 
@@ -6018,9 +6013,8 @@ const AccessKinds StartLifetimeOfUnionMemberHandler::AccessKind;
 /// operator whose left-hand side might involve a union member access. If it
 /// does, implicitly start the lifetime of any accessed union elements per
 /// C++20 [class.union]5.
-static bool MaybeHandleUnionActiveMemberChange(EvalInfo &Info,
-                                               const Expr *LHSExpr,
-                                               const LValue &LHS) {
+static bool HandleUnionActiveMemberChange(EvalInfo &Info, const Expr *LHSExpr,
+                                          const LValue &LHS) {
   if (LHS.InvalidBase || LHS.Designator.Invalid)
     return false;
 
@@ -6075,14 +6069,8 @@ static bool MaybeHandleUnionActiveMemberChange(EvalInfo &Info,
         break;
       // Walk path backwards as we walk up from the base to the derived class.
       for (const CXXBaseSpecifier *Elt : llvm::reverse(ICE->path())) {
-        if (Elt->isVirtual()) {
-          // A class with virtual base classes never has a trivial default
-          // constructor, so S(E) is empty in this case.
-          E = nullptr;
-          break;
-        }
-
         --PathLength;
+        (void)Elt;
         assert(declaresSameEntity(Elt->getType()->getAsCXXRecordDecl(),
                                   LHS.Designator.Entries[PathLength]
                                       .getAsBaseOrMember().getPointer()));
@@ -7760,7 +7748,7 @@ public:
         // per C++20 [class.union]5.
         if (Info.getLangOpts().CPlusPlus20 && OCE &&
             OCE->getOperator() == OO_Equal && MD->isTrivial() &&
-            !MaybeHandleUnionActiveMemberChange(Info, Args[0], ThisVal))
+            !HandleUnionActiveMemberChange(Info, Args[0], ThisVal))
           return false;
 
         Args = Args.slice(1);
@@ -8633,7 +8621,7 @@ bool LValueExprEvaluator::VisitBinAssign(const BinaryOperator *E) {
     return false;
 
   if (Info.getLangOpts().CPlusPlus20 &&
-      !MaybeHandleUnionActiveMemberChange(Info, E->getLHS(), Result))
+      !HandleUnionActiveMemberChange(Info, E->getLHS(), Result))
     return false;
 
   return handleAssignment(this->Info, E, Result, E->getLHS()->getType(),

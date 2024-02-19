@@ -661,8 +661,6 @@ std::optional<Symbol *> ObjFile::createDefined(
     if (prevailing) {
       SectionChunk *c = readSection(sectionNumber, def, getName());
       sparseChunks[sectionNumber] = c;
-      if (!c)
-        return nullptr;
       c->sym = cast<DefinedRegular>(leader);
       c->selection = selection;
       cast<DefinedRegular>(leader)->data = &c->repl;

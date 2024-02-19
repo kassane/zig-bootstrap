@@ -2032,6 +2032,8 @@ bool Sema::CheckTSBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case llvm::Triple::nvptx:
   case llvm::Triple::nvptx64:
     return CheckNVPTXBuiltinFunctionCall(TI, BuiltinID, TheCall);
+  case llvm::Triple::xtensa:
+    return CheckXtensaBuiltinFunctionCall(BuiltinID, TheCall);
   }
 }
 
@@ -5416,6 +5418,372 @@ bool Sema::CheckWebAssemblyBuiltinFunctionCall(const TargetInfo &TI,
   return false;
 }
 
+bool Sema::CheckXtensaBuiltinFunctionCall(unsigned BuiltinID,
+                                          CallExpr *TheCall) {
+  unsigned i = 0, l = 0, u = 0;
+  switch (BuiltinID) {
+#include "clang/Basic/XtensaSemaCheck.inc"
+  default:
+    return false;
+  case Xtensa::BI__builtin_xtensa_mul_ad_ll:
+  case Xtensa::BI__builtin_xtensa_mul_ad_lh:
+  case Xtensa::BI__builtin_xtensa_mul_ad_hl:
+  case Xtensa::BI__builtin_xtensa_mul_ad_hh:
+  case Xtensa::BI__builtin_xtensa_mula_ad_ll:
+  case Xtensa::BI__builtin_xtensa_mula_ad_lh:
+  case Xtensa::BI__builtin_xtensa_mula_ad_hl:
+  case Xtensa::BI__builtin_xtensa_mula_ad_hh:
+  case Xtensa::BI__builtin_xtensa_muls_ad_ll:
+  case Xtensa::BI__builtin_xtensa_muls_ad_lh:
+  case Xtensa::BI__builtin_xtensa_muls_ad_hl:
+  case Xtensa::BI__builtin_xtensa_muls_ad_hh:
+    i = 1;
+    l = 2;
+    u = 3;
+    break;
+  case Xtensa::BI__builtin_xtensa_mul_da_ll:
+  case Xtensa::BI__builtin_xtensa_mul_da_lh:
+  case Xtensa::BI__builtin_xtensa_mul_da_hl:
+  case Xtensa::BI__builtin_xtensa_mul_da_hh:
+  case Xtensa::BI__builtin_xtensa_mula_da_ll:
+  case Xtensa::BI__builtin_xtensa_mula_da_lh:
+  case Xtensa::BI__builtin_xtensa_mula_da_hl:
+  case Xtensa::BI__builtin_xtensa_mula_da_hh:
+  case Xtensa::BI__builtin_xtensa_muls_da_ll:
+  case Xtensa::BI__builtin_xtensa_muls_da_lh:
+  case Xtensa::BI__builtin_xtensa_muls_da_hl:
+  case Xtensa::BI__builtin_xtensa_muls_da_hh:
+    i = 0;
+    l = 0;
+    u = 1;
+    break;
+  case Xtensa::BI__builtin_xtensa_mul_dd_ll:
+  case Xtensa::BI__builtin_xtensa_mul_dd_lh:
+  case Xtensa::BI__builtin_xtensa_mul_dd_hl:
+  case Xtensa::BI__builtin_xtensa_mul_dd_hh:
+  case Xtensa::BI__builtin_xtensa_mula_dd_ll:
+  case Xtensa::BI__builtin_xtensa_mula_dd_lh:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hl:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hh:
+  case Xtensa::BI__builtin_xtensa_muls_dd_ll:
+  case Xtensa::BI__builtin_xtensa_muls_dd_lh:
+  case Xtensa::BI__builtin_xtensa_muls_dd_hl:
+  case Xtensa::BI__builtin_xtensa_muls_dd_hh:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 1) ||
+           SemaBuiltinConstantArgRange(TheCall, 1, 2, 3);
+  case Xtensa::BI__builtin_xtensa_mula_da_ll_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_da_lh_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_da_hl_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_da_hh_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_da_ll_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_da_lh_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_da_hl_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_da_hh_ldinc:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 3) ||
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 1);
+  case Xtensa::BI__builtin_xtensa_mula_dd_ll_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_dd_lh_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hl_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hh_lddec:
+  case Xtensa::BI__builtin_xtensa_mula_dd_ll_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_dd_lh_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hl_ldinc:
+  case Xtensa::BI__builtin_xtensa_mula_dd_hh_ldinc:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 3) ||
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 1) ||
+           SemaBuiltinConstantArgRange(TheCall, 3, 2, 3);
+  case Xtensa::BI__builtin_xtensa_xt_trunc_s:
+  case Xtensa::BI__builtin_xtensa_xt_utrunc_s:
+  case Xtensa::BI__builtin_xtensa_xt_float_s:
+  case Xtensa::BI__builtin_xtensa_xt_ufloat_s:
+  case Xtensa::BI__builtin_xtensa_xt_ceil_s:
+  case Xtensa::BI__builtin_xtensa_xt_floor_s:
+  case Xtensa::BI__builtin_xtensa_xt_round_s:
+    i = 1;
+    l = 0;
+    u = 15;
+    break;
+  case Xtensa::BI__builtin_xtensa_xt_lsi:
+  case Xtensa::BI__builtin_xtensa_xt_lsip:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 1020) ||
+           SemaBuiltinConstantArgMultiple(TheCall, 1, 4);
+  case Xtensa::BI__builtin_xtensa_xt_ssi:
+  case Xtensa::BI__builtin_xtensa_xt_ssip:
+    return SemaBuiltinConstantArgRange(TheCall, 2, 0, 1020) ||
+           SemaBuiltinConstantArgMultiple(TheCall, 2, 4);
+  case Xtensa::BI__builtin_xtensa_ee_andq:
+  case Xtensa::BI__builtin_xtensa_ee_cmul_s16:
+  case Xtensa::BI__builtin_xtensa_ee_fft_cmul_s16_st_xp:
+  case Xtensa::BI__builtin_xtensa_ee_fft_r2bf_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_orq:
+  case Xtensa::BI__builtin_xtensa_ee_src_q:
+  case Xtensa::BI__builtin_xtensa_ee_src_q_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_eq_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_eq_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_eq_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_gt_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_gt_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_gt_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_lt_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_lt_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vcmp_lt_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u16:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u8:
+  case Xtensa::BI__builtin_xtensa_ee_vprelu_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vprelu_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s32:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s8:
+  case Xtensa::BI__builtin_xtensa_ee_xorq:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 1, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_bitrev:
+  case Xtensa::BI__builtin_xtensa_ee_fft_vst_r32_decp:
+  case Xtensa::BI__builtin_xtensa_ee_ld_128_usar_ip:
+  case Xtensa::BI__builtin_xtensa_ee_ld_128_usar_xp:
+  case Xtensa::BI__builtin_xtensa_ee_movi_32_a:
+  case Xtensa::BI__builtin_xtensa_ee_movi_32_q:
+  case Xtensa::BI__builtin_xtensa_ee_mov_s16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_mov_s8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_mov_u16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_mov_u8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_srcmb_s16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_srcmb_s8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_16:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_16_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_16_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_32:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_32_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_32_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_8:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_8_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vldbc_8_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vld_128_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vld_128_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vld_h_64_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vld_h_64_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vld_l_64_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vld_l_64_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vrelu_s16:
+  case Xtensa::BI__builtin_xtensa_ee_vrelu_s8:
+  case Xtensa::BI__builtin_xtensa_ee_vst_128_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vst_128_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vst_h_64_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vst_h_64_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vst_l_64_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vst_l_64_xp:
+  case Xtensa::BI__builtin_xtensa_ee_zero_q:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_cmul_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_cmul_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s32_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s32_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vadds_s8_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s32_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s32_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmax_s8_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s32_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s32_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmin_s8_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_s8_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmul_u8_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s16_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s32_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s32_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s8_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsubs_s8_st_incp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_fft_ams_s16_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_fft_ams_s16_ld_incp_uaup:
+  case Xtensa::BI__builtin_xtensa_ee_fft_ams_s16_ld_r32_decp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 5, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 6, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_fft_ams_s16_st_incp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 1, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 5, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 6, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_fft_cmul_s16_ld_xp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 5, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_fft_r2bf_s16:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 1, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_ldxq_32:
+  case Xtensa::BI__builtin_xtensa_ee_notq:
+  case Xtensa::BI__builtin_xtensa_ee_slci_2q:
+  case Xtensa::BI__builtin_xtensa_ee_slcxxp_2q:
+  case Xtensa::BI__builtin_xtensa_ee_srci_2q:
+  case Xtensa::BI__builtin_xtensa_ee_srcq_128_st_incp:
+  case Xtensa::BI__builtin_xtensa_ee_srcxxp_2q:
+  case Xtensa::BI__builtin_xtensa_ee_stxq_32:
+  case Xtensa::BI__builtin_xtensa_ee_vldhbc_16_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_accx:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_accx:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_accx:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_accx:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vsl_32:
+  case Xtensa::BI__builtin_xtensa_ee_vsmulas_s16_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vsmulas_s8_qacc:
+  case Xtensa::BI__builtin_xtensa_ee_vsr_32:
+  case Xtensa::BI__builtin_xtensa_ee_vunzip_16:
+  case Xtensa::BI__builtin_xtensa_ee_vunzip_32:
+  case Xtensa::BI__builtin_xtensa_ee_vunzip_8:
+  case Xtensa::BI__builtin_xtensa_ee_vzip_16:
+  case Xtensa::BI__builtin_xtensa_ee_vzip_32:
+  case Xtensa::BI__builtin_xtensa_ee_vzip_8:
+  case Xtensa::BI__builtin_xtensa_mv_qr:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 1, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_src_q_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_src_q_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_accx_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_accx_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_accx_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_accx_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_accx_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_accx_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_accx_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_accx_ld_xp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ld_ip:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ld_xp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_accx_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_accx_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_accx_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_accx_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_accx_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_accx_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_accx_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_accx_ld_xp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ld_ip_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ld_xp_qup:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 5, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 6, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ldbc_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ldbc_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ldbc_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ldbc_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsmulas_s16_qacc_ld_incp:
+  case Xtensa::BI__builtin_xtensa_ee_vsmulas_s8_qacc_ld_incp:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s16_qacc_ldbc_incp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_s8_qacc_ldbc_incp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u16_qacc_ldbc_incp_qup:
+  case Xtensa::BI__builtin_xtensa_ee_vmulas_u8_qacc_ldbc_incp_qup:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 3, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 4, 0, 7) &&
+           SemaBuiltinConstantArgRange(TheCall, 5, 0, 7);
+  case Xtensa::BI__builtin_xtensa_ae_int32x2:
+  case Xtensa::BI__builtin_xtensa_ae_int32:
+    return SemaBuiltinXtensaConversion(BuiltinID, TheCall);
+  }
+  return SemaBuiltinConstantArgRange(TheCall, i, l, u);
+}
+
+bool Sema::SemaBuiltinXtensaConversion(unsigned BuiltinID, CallExpr *TheCall) {
+  unsigned MaxElems;
+  switch (BuiltinID) {
+  case Xtensa::BI__builtin_xtensa_ae_int32x2:
+    MaxElems = 2;
+    break;
+  case Xtensa::BI__builtin_xtensa_ae_int32:
+    MaxElems = 1;
+    break;
+  default:
+    llvm_unreachable("Unknown intrinsic ID");
+  }
+  if (checkArgCount(*this, TheCall, 1))
+    return true;
+  Expr *Arg = TheCall->getArg(0);
+  QualType QT = Arg->getType();
+  if (auto *VecTy = QT->getAs<VectorType>()) {
+    unsigned NumEl = VecTy->getNumElements();
+    QualType ElType = VecTy->getElementType();
+    unsigned ElWidth = Context.getIntWidth(ElType);
+    QualType VecType = Context.getVectorType(Context.IntTy, MaxElems,
+                                             VectorType::GenericVector);
+    if (ElWidth != 32 || NumEl > MaxElems)
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_typecheck_convert_incompatible)
+             << QT << VecType << 1 << 0 << 0;
+    return false;
+  } else {
+    if (!QT->isIntegerType())
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_typecheck_convert_incompatible)
+             << QT << Context.IntTy << 1 << 0 << 0;
+
+    return false;
+  }
+  return false;
+}
+
 void Sema::checkRVVTypeSupport(QualType Ty, SourceLocation Loc, ValueDecl *D) {
   const TargetInfo &TI = Context.getTargetInfo();
   // (ELEN, LMUL) pairs of (8, mf8), (16, mf4), (32, mf2), (64, m1) requires at
@@ -5449,7 +5817,6 @@ bool Sema::CheckNVPTXBuiltinFunctionCall(const TargetInfo &TI,
   case NVPTX::BI__nvvm_cp_async_cg_shared_global_16:
     return checkArgCountAtMost(*this, TheCall, 3);
   }
-
   return false;
 }
 
@@ -11166,15 +11533,12 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
       ImplicitMatch == ArgType::NoMatchTypeConfusion)
     Match = ImplicitMatch;
   assert(Match != ArgType::MatchPromotion);
-
   // Look through unscoped enums to their underlying type.
   bool IsEnum = false;
   bool IsScopedEnum = false;
-  QualType IntendedTy = ExprTy;
   if (auto EnumTy = ExprTy->getAs<EnumType>()) {
-    IntendedTy = EnumTy->getDecl()->getIntegerType();
     if (EnumTy->isUnscopedEnumerationType()) {
-      ExprTy = IntendedTy;
+      ExprTy = EnumTy->getDecl()->getIntegerType();
       // This controls whether we're talking about the underlying type or not,
       // which we only want to do when it's an unscoped enum.
       IsEnum = true;
@@ -11186,6 +11550,7 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
   // %C in an Objective-C context prints a unichar, not a wchar_t.
   // If the argument is an integer of some kind, believe the %C and suggest
   // a cast instead of changing the conversion specifier.
+  QualType IntendedTy = ExprTy;
   if (isObjCContext() &&
       FS.getConversionSpecifier().getKind() == ConversionSpecifier::CArg) {
     if (ExprTy->isIntegralOrUnscopedEnumerationType() &&
@@ -11221,10 +11586,8 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
     std::tie(CastTy, CastTyName) = shouldNotPrintDirectly(S.Context, IntendedTy, E);
     if (!CastTy.isNull()) {
       // %zi/%zu and %td/%tu are OK to use for NSInteger/NSUInteger of type int
-      // (long in ASTContext). Only complain to pedants or when they're the
-      // underlying type of a scoped enum (which always needs a cast).
-      if (!IsScopedEnum &&
-          (CastTyName == "NSInteger" || CastTyName == "NSUInteger") &&
+      // (long in ASTContext). Only complain to pedants.
+      if ((CastTyName == "NSInteger" || CastTyName == "NSUInteger") &&
           (AT.isSizeT() || AT.isPtrdiffT()) &&
           AT.matchesType(S.Context, CastTy))
         Match = ArgType::NoMatchPedantic;
@@ -11279,15 +11642,20 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
       // should be printed as 'long' for 64-bit compatibility.)
       // Rather than emitting a normal format/argument mismatch, we want to
       // add a cast to the recommended type (and correct the format string
-      // if necessary). We should also do so for scoped enumerations.
+      // if necessary).
       SmallString<16> CastBuf;
       llvm::raw_svector_ostream CastFix(CastBuf);
       CastFix << (S.LangOpts.CPlusPlus ? "static_cast<" : "(");
-      IntendedTy.print(CastFix, S.Context.getPrintingPolicy());
+      if (IsScopedEnum) {
+        CastFix << AT.getRepresentativeType(S.Context).getAsString(
+            S.Context.getPrintingPolicy());
+      } else {
+        IntendedTy.print(CastFix, S.Context.getPrintingPolicy());
+      }
       CastFix << (S.LangOpts.CPlusPlus ? ">" : ")");
 
       SmallVector<FixItHint,4> Hints;
-      if (AT.matchesType(S.Context, IntendedTy) != ArgType::Match ||
+      if ((!AT.matchesType(S.Context, IntendedTy) && !IsScopedEnum) ||
           ShouldNotPrintDirectly)
         Hints.push_back(FixItHint::CreateReplacement(SpecRange, os.str()));
 
@@ -11307,15 +11675,11 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
         Hints.push_back(
             FixItHint::CreateInsertion(E->getBeginLoc(), CastFix.str()));
 
-        // We don't use getLocForEndOfToken because it returns invalid source
-        // locations for macro expansions (by design).
-        SourceLocation EndLoc = S.SourceMgr.getSpellingLoc(E->getEndLoc());
-        SourceLocation After = EndLoc.getLocWithOffset(
-            Lexer::MeasureTokenLength(EndLoc, S.SourceMgr, S.LangOpts));
+        SourceLocation After = S.getLocForEndOfToken(E->getEndLoc());
         Hints.push_back(FixItHint::CreateInsertion(After, ")"));
       }
 
-      if (ShouldNotPrintDirectly && !IsScopedEnum) {
+      if (ShouldNotPrintDirectly) {
         // The expression has a type that should not be printed directly.
         // We extract the name from the typedef because we don't want to show
         // the underlying type in the diagnostic.

@@ -23,7 +23,7 @@ const build_options = @import("build_options");
 const wasi_libc = @import("../wasi_libc.zig");
 const Cache = std.Build.Cache;
 const Type = @import("../type.zig").Type;
-const Value = @import("../value.zig").Value;
+const Value = @import("../Value.zig");
 const TypedValue = @import("../TypedValue.zig");
 const LlvmObject = @import("../codegen/llvm.zig").Object;
 const Air = @import("../Air.zig");
@@ -418,7 +418,10 @@ pub fn createEmpty(
             .zcu_object_sub_path = zcu_object_sub_path,
             .gc_sections = options.gc_sections orelse (output_mode != .Obj),
             .print_gc_sections = options.print_gc_sections,
-            .stack_size = options.stack_size orelse std.wasm.page_size * 16, // 1MB
+            .stack_size = options.stack_size orelse switch (target.os.tag) {
+                .freestanding => 1 * 1024 * 1024, // 1 MiB
+                else => 16 * 1024 * 1024, // 16 MiB
+            },
             .allow_shlib_undefined = options.allow_shlib_undefined orelse false,
             .file = null,
             .disable_lld_caching = options.disable_lld_caching,
@@ -662,7 +665,7 @@ pub fn getOrCreateAtomForDecl(wasm: *Wasm, decl_index: InternPool.DeclIndex) !At
         const symbol = atom.symbolLoc().getSymbol(wasm);
         const mod = wasm.base.comp.module.?;
         const decl = mod.declPtr(decl_index);
-        const full_name = mod.intern_pool.stringToSlice(try decl.getFullyQualifiedName(mod));
+        const full_name = mod.intern_pool.stringToSlice(try decl.fullyQualifiedName(mod));
         symbol.name = try wasm.string_table.put(gpa, full_name);
     }
     return gop.value_ptr.*;
@@ -1515,7 +1518,7 @@ pub fn updateFunc(wasm: *Wasm, mod: *Module, func_index: InternPool.Index, air: 
     const code = switch (result) {
         .ok => code_writer.items,
         .fail => |em| {
-            decl.analysis = .codegen_failure;
+            func.analysis(&mod.intern_pool).state = .codegen_failure;
             try mod.failed_decls.put(mod.gpa, decl_index, em);
             return;
         },
@@ -1598,7 +1601,7 @@ pub fn updateDeclLineNumber(wasm: *Wasm, mod: *Module, decl_index: InternPool.De
         defer tracy.end();
 
         const decl = mod.declPtr(decl_index);
-        const decl_name = mod.intern_pool.stringToSlice(try decl.getFullyQualifiedName(mod));
+        const decl_name = mod.intern_pool.stringToSlice(try decl.fullyQualifiedName(mod));
 
         log.debug("updateDeclLineNumber {s}{*}", .{ decl_name, decl });
         try dw.updateDeclLineNumber(mod, decl_index);
@@ -1612,7 +1615,7 @@ fn finishUpdateDecl(wasm: *Wasm, decl_index: InternPool.DeclIndex, code: []const
     const atom_index = wasm.decls.get(decl_index).?;
     const atom = wasm.getAtomPtr(atom_index);
     const symbol = &wasm.symbols.items[atom.sym_index];
-    const full_name = mod.intern_pool.stringToSlice(try decl.getFullyQualifiedName(mod));
+    const full_name = mod.intern_pool.stringToSlice(try decl.fullyQualifiedName(mod));
     symbol.name = try wasm.string_table.put(gpa, full_name);
     symbol.tag = symbol_tag;
     try atom.code.appendSlice(gpa, code);
@@ -1678,7 +1681,7 @@ pub fn lowerUnnamedConst(wasm: *Wasm, tv: TypedValue, decl_index: InternPool.Dec
     const parent_atom_index = try wasm.getOrCreateAtomForDecl(decl_index);
     const parent_atom = wasm.getAtom(parent_atom_index);
     const local_index = parent_atom.locals.items.len;
-    const fqn = mod.intern_pool.stringToSlice(try decl.getFullyQualifiedName(mod));
+    const fqn = mod.intern_pool.stringToSlice(try decl.fullyQualifiedName(mod));
     const name = try std.fmt.allocPrintZ(gpa, "__unnamed_{s}_{d}", .{
         fqn, local_index,
     });
@@ -2054,6 +2057,7 @@ pub fn freeDecl(wasm: *Wasm, decl_index: InternPool.DeclIndex) void {
     const decl = mod.declPtr(decl_index);
     const atom_index = wasm.decls.get(decl_index).?;
     const atom = wasm.getAtomPtr(atom_index);
+    atom.prev = null;
     wasm.symbols_free_list.append(gpa, atom.sym_index) catch {};
     _ = wasm.decls.remove(decl_index);
     wasm.symbols.items[atom.sym_index].tag = .dead;
@@ -2076,16 +2080,6 @@ pub fn freeDecl(wasm: *Wasm, decl_index: InternPool.DeclIndex) void {
     //     dwarf.freeDecl(decl_index);
     // }
 
-    if (atom.next) |next_atom_index| {
-        const next_atom = wasm.getAtomPtr(next_atom_index);
-        next_atom.prev = atom.prev;
-        atom.next = null;
-    }
-    if (atom.prev) |prev_index| {
-        const prev_atom = wasm.getAtomPtr(prev_index);
-        prev_atom.next = atom.next;
-        atom.prev = null;
-    }
 }
 
 /// Appends a new entry to the indirect function table
@@ -2327,8 +2321,6 @@ pub fn appendAtomAtIndex(wasm: *Wasm, index: u32, atom_index: Atom.Index) !void 
     const gpa = wasm.base.comp.gpa;
     const atom = wasm.getAtomPtr(atom_index);
     if (wasm.atoms.getPtr(index)) |last_index_ptr| {
-        const last = wasm.getAtomPtr(last_index_ptr.*);
-        last.*.next = atom_index;
         atom.prev = last_index_ptr.*;
         last_index_ptr.* = atom_index;
     } else {
@@ -2375,6 +2367,11 @@ fn allocateAtoms(wasm: *Wasm) !void {
     while (it.next()) |entry| {
         const segment = &wasm.segments.items[entry.key_ptr.*];
         var atom_index = entry.value_ptr.*;
+        if (entry.key_ptr.* == wasm.code_section_index) {
+            // Code section is allocated upon writing as they are required to be ordered
+            // to synchronise with the function section.
+            continue;
+        }
         var offset: u32 = 0;
         while (true) {
             const atom = wasm.getAtomPtr(atom_index);
@@ -2387,28 +2384,17 @@ fn allocateAtoms(wasm: *Wasm) !void {
                 break :sym object.symtable[symbol_loc.index];
             } else wasm.symbols.items[symbol_loc.index];
 
+            // Dead symbols must be unlinked from the linked-list to prevent them
+            // from being emit into the binary.
             if (sym.isDead()) {
-                // Dead symbols must be unlinked from the linked-list to prevent them
-                // from being emit into the binary.
-                if (atom.next) |next_index| {
-                    const next = wasm.getAtomPtr(next_index);
-                    next.prev = atom.prev;
-                } else if (entry.value_ptr.* == atom_index) {
+                if (entry.value_ptr.* == atom_index and atom.prev != null) {
                     // When the atom is dead and is also the first atom retrieved from wasm.atoms(index) we update
                     // the entry to point it to the previous atom to ensure we do not start with a dead symbol that
                     // was removed and therefore do not emit any code at all.
-                    if (atom.prev) |prev| {
-                        entry.value_ptr.* = prev;
-                    }
+                    entry.value_ptr.* = atom.prev.?;
                 }
-                atom_index = atom.prev orelse {
-                    atom.next = null;
-                    break;
-                };
-                const prev = wasm.getAtomPtr(atom_index);
-                prev.next = atom.next;
+                atom_index = atom.prev orelse break;
                 atom.prev = null;
-                atom.next = null;
                 continue;
             }
             offset = @intCast(atom.alignment.forward(offset));
@@ -2546,16 +2532,6 @@ fn setupErrorsLen(wasm: *Wasm) !void {
     // if not, allcoate a new atom.
     const atom_index = if (wasm.symbol_atom.get(loc)) |index| blk: {
         const atom = wasm.getAtomPtr(index);
-        if (atom.next) |next_atom_index| {
-            const next_atom = wasm.getAtomPtr(next_atom_index);
-            next_atom.prev = atom.prev;
-            atom.next = null;
-        }
-        if (atom.prev) |prev_index| {
-            const prev_atom = wasm.getAtomPtr(prev_index);
-            prev_atom.next = atom.next;
-            atom.prev = null;
-        }
         atom.deinit(gpa);
         break :blk index;
     } else new_atom: {
@@ -2658,18 +2634,12 @@ fn createSyntheticFunction(
         .sym_index = loc.index,
         .file = null,
         .alignment = .@"1",
-        .next = null,
         .prev = null,
         .code = function_body.moveToUnmanaged(),
         .original_offset = 0,
     };
     try wasm.appendAtomAtIndex(wasm.code_section_index.?, atom_index);
     try wasm.symbol_atom.putNoClobber(gpa, loc, atom_index);
-
-    // `allocateAtoms` has already been called, set the atom's offset manually.
-    // This is fine to do manually as we insert the atom at the very end.
-    const prev_atom = wasm.getAtom(atom.prev.?);
-    atom.offset = prev_atom.offset + prev_atom.size;
 }
 
 /// Unlike `createSyntheticFunction` this function is to be called by
@@ -2695,7 +2665,6 @@ pub fn createFunction(
         .sym_index = loc.index,
         .file = null,
         .alignment = .@"1",
-        .next = null,
         .prev = null,
         .code = function_body.moveToUnmanaged(),
         .relocs = relocations.moveToUnmanaged(),
@@ -3260,7 +3229,7 @@ pub fn getMatchingSegment(wasm: *Wasm, object_index: u16, symbol_index: u32) !u3
                     break :blk index;
                 };
             } else if (mem.eql(u8, section_name, ".debug_ranges")) {
-                return wasm.debug_line_index orelse blk: {
+                return wasm.debug_ranges_index orelse blk: {
                     wasm.debug_ranges_index = index;
                     try wasm.appendDummySegment();
                     break :blk index;
@@ -3452,12 +3421,10 @@ fn resetState(wasm: *Wasm) void {
     var atom_it = wasm.decls.valueIterator();
     while (atom_it.next()) |atom_index| {
         const atom = wasm.getAtomPtr(atom_index.*);
-        atom.next = null;
         atom.prev = null;
 
         for (atom.locals.items) |local_atom_index| {
             const local_atom = wasm.getAtomPtr(local_atom_index);
-            local_atom.next = null;
             local_atom.prev = null;
         }
     }
@@ -3547,7 +3514,7 @@ fn linkWithZld(wasm: *Wasm, arena: Allocator, prog_node: *std.Progress.Node) lin
         // We are about to obtain this lock, so here we give other processes a chance first.
         wasm.base.releaseLock();
 
-        comptime assert(Compilation.link_hash_implementation_version == 10);
+        comptime assert(Compilation.link_hash_implementation_version == 12);
 
         for (objects) |obj| {
             _ = try man.addFile(obj.path, null);
@@ -3568,11 +3535,8 @@ fn linkWithZld(wasm: *Wasm, arena: Allocator, prog_node: *std.Progress.Node) lin
         man.hash.addOptional(wasm.initial_memory);
         man.hash.addOptional(wasm.max_memory);
         man.hash.addOptional(wasm.global_base);
-        man.hash.add(wasm.export_symbol_names.len);
+        man.hash.addListOfBytes(wasm.export_symbol_names);
         // strip does not need to go into the linker hash because it is part of the hash namespace
-        for (wasm.export_symbol_names) |symbol_name| {
-            man.hash.addBytes(symbol_name);
-        }
 
         // We don't actually care whether it's a cache hit or miss; we just need the digest and the lock.
         _ = try man.hit();
@@ -4085,46 +4049,29 @@ fn writeToFile(
     }
 
     // Code section
-    var code_section_size: u32 = 0;
-    if (wasm.code_section_index) |code_index| {
+    if (wasm.code_section_index != null) {
         const header_offset = try reserveVecSectionHeader(&binary_bytes);
-        var atom_index = wasm.atoms.get(code_index).?;
+        const start_offset = binary_bytes.items.len - 5; // minus 5 so start offset is 5 to include entry count
 
-        // The code section must be sorted in line with the function order.
-        var sorted_atoms = try std.ArrayList(*const Atom).initCapacity(gpa, wasm.functions.count());
-        defer sorted_atoms.deinit();
-
-        while (true) {
+        var func_it = wasm.functions.iterator();
+        while (func_it.next()) |entry| {
+            const sym_loc: SymbolLoc = .{ .index = entry.value_ptr.sym_index, .file = entry.key_ptr.file };
+            const atom_index = wasm.symbol_atom.get(sym_loc).?;
             const atom = wasm.getAtomPtr(atom_index);
+
             if (!is_obj) {
                 atom.resolveRelocs(wasm);
             }
-            sorted_atoms.appendAssumeCapacity(atom); // found more code atoms than functions
-            atom_index = atom.prev orelse break;
-        }
-        assert(wasm.functions.count() == sorted_atoms.items.len);
-
-        const atom_sort_fn = struct {
-            fn sort(ctx: *const Wasm, lhs: *const Atom, rhs: *const Atom) bool {
-                const lhs_sym = lhs.symbolLoc().getSymbol(ctx);
-                const rhs_sym = rhs.symbolLoc().getSymbol(ctx);
-                return lhs_sym.index < rhs_sym.index;
-            }
-        }.sort;
-
-        mem.sort(*const Atom, sorted_atoms.items, wasm, atom_sort_fn);
-
-        for (sorted_atoms.items) |sorted_atom| {
-            try leb.writeULEB128(binary_writer, sorted_atom.size);
-            try binary_writer.writeAll(sorted_atom.code.items);
+            atom.offset = @intCast(binary_bytes.items.len - start_offset);
+            try leb.writeULEB128(binary_writer, atom.size);
+            try binary_writer.writeAll(atom.code.items);
         }
 
-        code_section_size = @as(u32, @intCast(binary_bytes.items.len - header_offset - header_size));
         try writeVecSectionHeader(
             binary_bytes.items,
             header_offset,
             .code,
-            code_section_size,
+            @intCast(binary_bytes.items.len - header_offset - header_size),
             @intCast(wasm.functions.count()),
         );
         code_section_index = section_count;
@@ -4633,7 +4580,7 @@ fn linkWithLLD(wasm: *Wasm, arena: Allocator, prog_node: *std.Progress.Node) !vo
         // We are about to obtain this lock, so here we give other processes a chance first.
         wasm.base.releaseLock();
 
-        comptime assert(Compilation.link_hash_implementation_version == 10);
+        comptime assert(Compilation.link_hash_implementation_version == 12);
 
         for (comp.objects) |obj| {
             _ = try man.addFile(obj.path, null);
@@ -4655,11 +4602,8 @@ fn linkWithLLD(wasm: *Wasm, arena: Allocator, prog_node: *std.Progress.Node) !vo
         man.hash.addOptional(wasm.max_memory);
         man.hash.add(shared_memory);
         man.hash.addOptional(wasm.global_base);
-        man.hash.add(wasm.export_symbol_names.len);
+        man.hash.addListOfBytes(wasm.export_symbol_names);
         // strip does not need to go into the linker hash because it is part of the hash namespace
-        for (wasm.export_symbol_names) |symbol_name| {
-            man.hash.addBytes(symbol_name);
-        }
 
         // We don't actually care whether it's a cache hit or miss; we just need the digest and the lock.
         _ = try man.hit();
@@ -4970,7 +4914,10 @@ fn linkWithLLD(wasm: *Wasm, arena: Allocator, prog_node: *std.Progress.Node) !vo
             // report a nice error here with the file path if it fails instead of
             // just returning the error code.
             // chmod does not interact with umask, so we use a conservative -rwxr--r-- here.
-            try std.os.fchmodat(fs.cwd().fd, full_out_path, 0o744, 0);
+            std.os.fchmodat(fs.cwd().fd, full_out_path, 0o744, 0) catch |err| switch (err) {
+                error.OperationNotSupported => unreachable, // Not a symlink.
+                else => |e| return e,
+            };
         }
     }
 
@@ -5301,14 +5248,8 @@ fn markReferences(wasm: *Wasm) !void {
             const object = &wasm.objects.items[file];
             const atom_index = try Object.parseSymbolIntoAtom(object, file, sym_loc.index, wasm);
             const atom = wasm.getAtom(atom_index);
-            for (atom.relocs.items) |reloc| {
-                const target_loc: SymbolLoc = .{ .index = reloc.index, .file = atom.file };
-                const target_sym = target_loc.getSymbol(wasm);
-                if (target_sym.isAlive() or !do_garbage_collect) {
-                    sym.mark();
-                    continue; // Skip all other relocations as this debug atom is already marked now
-                }
-            }
+            const atom_sym = atom.symbolLoc().getSymbol(wasm);
+            atom_sym.mark();
         }
     }
 }

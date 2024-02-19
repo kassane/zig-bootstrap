@@ -1247,9 +1247,7 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
   return true;
 }
 
-static bool
-EliminateDuplicatePHINodesNaiveImpl(BasicBlock *BB,
-                                    SmallPtrSetImpl<PHINode *> &ToRemove) {
+static bool EliminateDuplicatePHINodesNaiveImpl(BasicBlock *BB) {
   // This implementation doesn't currently consider undef operands
   // specially. Theoretically, two phis which are identical except for
   // one having an undef where the other doesn't could be collapsed.
@@ -1265,14 +1263,12 @@ EliminateDuplicatePHINodesNaiveImpl(BasicBlock *BB,
     // Note that we only look in the upper square's triangle,
     // we already checked that the lower triangle PHI's aren't identical.
     for (auto J = I; PHINode *DuplicatePN = dyn_cast<PHINode>(J); ++J) {
-      if (ToRemove.contains(DuplicatePN))
-        continue;
       if (!DuplicatePN->isIdenticalToWhenDefined(PN))
         continue;
       // A duplicate. Replace this PHI with the base PHI.
       ++NumPHICSEs;
       DuplicatePN->replaceAllUsesWith(PN);
-      ToRemove.insert(DuplicatePN);
+      DuplicatePN->eraseFromParent();
       Changed = true;
 
       // The RAUW can change PHIs that we already visited.
@@ -1283,9 +1279,7 @@ EliminateDuplicatePHINodesNaiveImpl(BasicBlock *BB,
   return Changed;
 }
 
-static bool
-EliminateDuplicatePHINodesSetBasedImpl(BasicBlock *BB,
-                                       SmallPtrSetImpl<PHINode *> &ToRemove) {
+static bool EliminateDuplicatePHINodesSetBasedImpl(BasicBlock *BB) {
   // This implementation doesn't currently consider undef operands
   // specially. Theoretically, two phis which are identical except for
   // one having an undef where the other doesn't could be collapsed.
@@ -1349,14 +1343,12 @@ EliminateDuplicatePHINodesSetBasedImpl(BasicBlock *BB,
   // Examine each PHI.
   bool Changed = false;
   for (auto I = BB->begin(); PHINode *PN = dyn_cast<PHINode>(I++);) {
-    if (ToRemove.contains(PN))
-      continue;
     auto Inserted = PHISet.insert(PN);
     if (!Inserted.second) {
       // A duplicate. Replace this PHI with its duplicate.
       ++NumPHICSEs;
       PN->replaceAllUsesWith(*Inserted.first);
-      ToRemove.insert(PN);
+      PN->eraseFromParent();
       Changed = true;
 
       // The RAUW can change PHIs that we already visited. Start over from the
@@ -1369,23 +1361,14 @@ EliminateDuplicatePHINodesSetBasedImpl(BasicBlock *BB,
   return Changed;
 }
 
-bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB,
-                                      SmallPtrSetImpl<PHINode *> &ToRemove) {
+bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
   if (
 #ifndef NDEBUG
       !PHICSEDebugHash &&
 #endif
       hasNItemsOrLess(BB->phis(), PHICSENumPHISmallSize))
-    return EliminateDuplicatePHINodesNaiveImpl(BB, ToRemove);
-  return EliminateDuplicatePHINodesSetBasedImpl(BB, ToRemove);
-}
-
-bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
-  SmallPtrSet<PHINode *, 8> ToRemove;
-  bool Changed = EliminateDuplicatePHINodes(BB, ToRemove);
-  for (PHINode *PN : ToRemove)
-    PN->eraseFromParent();
-  return Changed;
+    return EliminateDuplicatePHINodesNaiveImpl(BB);
+  return EliminateDuplicatePHINodesSetBasedImpl(BB);
 }
 
 /// If the specified pointer points to an object that we control, try to modify

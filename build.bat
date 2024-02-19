@@ -35,7 +35,7 @@ if "%VSCMD_ARG_HOST_ARCH%"=="x86" set OUTDIR=out-win-x86
 
 set ROOTDIR=%~dp0
 set "ROOTDIR_CMAKE=%ROOTDIR:\=/%"
-set ZIG_VERSION=0.11.0-dev.995+7350f0d9b
+set ZIG_VERSION=0.12.0-dev.xtensa.2858+8e52bb152
 
 set JOBS_ARG=
 
@@ -88,6 +88,7 @@ cmake "%ROOTDIR%/llvm" ^
   -DCLANG_TOOL_C_ARCMT_TEST_BUILD=OFF ^
   -DCLANG_TOOL_LIBCLANG_BUILD=OFF ^
   -DLLVM_USE_CRT_RELEASE=MT ^
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Xtensa ^
   -DLLVM_BUILD_LLVM_C_DYLIB=NO
 if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 cmake --build . %JOBS_ARG% --target install
@@ -236,6 +237,7 @@ cmake "%ROOTDIR%/llvm" ^
   -DLLVM_INCLUDE_EXAMPLES=OFF ^
   -DLLVM_INCLUDE_BENCHMARKS=OFF ^
   -DLLVM_INCLUDE_DOCS=OFF ^
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Xtensa ^
   -DLLVM_DEFAULT_TARGET_TRIPLE=%TARGET% ^
   -DLLVM_TOOL_LLVM_LTO2_BUILD=OFF ^
   -DLLVM_TOOL_LLVM_LTO_BUILD=OFF ^
@@ -266,8 +268,8 @@ cd "%ROOTDIR%\zig"
   --search-prefix "%ROOTDIR%%OUTDIR%\%TARGET%-%MCPU%" ^
   -Dflat ^
   -Dstatic-llvm ^
-  -Doptimize=ReleaseFast ^
-  -Dstrip ^
+  -Doptimize=ReleaseSafe ^
+  -Dllvm-has-xtensa ^
   -Dtarget="%TARGET%" ^
   -Dcpu="%MCPU%" ^
   -Dversion-string="%ZIG_VERSION%"

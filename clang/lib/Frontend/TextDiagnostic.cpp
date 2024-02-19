@@ -1160,7 +1160,8 @@ void TextDiagnostic::emitSnippetAndCaret(
   // Find the set of lines to include.
   const unsigned MaxLines = DiagOpts->SnippetLineLimit;
   std::pair<unsigned, unsigned> Lines = {CaretLineNo, CaretLineNo};
-  unsigned DisplayLineNo = Loc.getPresumedLoc().getLine();
+  unsigned DisplayLineNo =
+      Ranges.empty() ? Loc.getPresumedLoc().getLine() : ~0u;
   for (const auto &I : Ranges) {
     if (auto OptionalRange = findLinesForRange(I, FID, SM))
       Lines = maybeAddRange(Lines, *OptionalRange, MaxLines);

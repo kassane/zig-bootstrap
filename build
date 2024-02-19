@@ -7,7 +7,7 @@ TARGET="$1" # Example: riscv64-linux-gnu
 MCPU="$2" # Examples: `baseline`, `native`, `generic+v7a`, or `arm1176jzf_s`
 
 ROOTDIR="$(pwd)"
-ZIG_VERSION="0.12.0-dev.2058+04ac028a2"
+ZIG_VERSION="0.12.0-dev.xtensa.2858+8e52bb152"
 
 TARGET_OS_AND_ABI=${TARGET#*-} # Example: linux-gnu
 
@@ -50,6 +50,7 @@ cmake "$ROOTDIR/llvm" \
   -DCLANG_TOOL_C_INDEX_TEST_BUILD=OFF \
   -DCLANG_TOOL_ARCMT_TEST_BUILD=OFF \
   -DCLANG_TOOL_C_ARCMT_TEST_BUILD=OFF \
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Xtensa \
   -DCLANG_TOOL_LIBCLANG_BUILD=OFF
 cmake --build . --target install
 
@@ -185,6 +186,7 @@ cmake "$ROOTDIR/llvm" \
   -DCLANG_TOOL_C_ARCMT_TEST_BUILD=OFF \
   -DCLANG_TOOL_LIBCLANG_BUILD=OFF \
   -DLIBCLANG_BUILD_STATIC=ON \
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Xtensa \
   -DLLD_BUILD_TOOLS=OFF
 cmake --build . --target install
 
@@ -194,9 +196,9 @@ $ZIG build \
   --prefix "$ROOTDIR/out/zig-$TARGET-$MCPU" \
   --search-prefix "$ROOTDIR/out/$TARGET-$MCPU" \
   -Dflat \
+  -Dllvm-has-xtensa \
   -Dstatic-llvm \
-  -Doptimize=ReleaseFast \
-  -Dstrip \
+  -Doptimize=ReleaseSafe \
   -Dtarget="$TARGET" \
   -Dcpu="$MCPU" \
   -Dversion-string="$ZIG_VERSION"

@@ -1624,7 +1624,7 @@ static void readConfigs(opt::InputArgList &args) {
   // which should be exported. For -shared, references to matched non-local
   // STV_DEFAULT symbols are not bound to definitions within the shared object,
   // even if other options express a symbolic intention: -Bsymbolic,
-  // -Bsymbolic-functions (if STT_FUNC), --dynamic-list.
+  // -shared (if STT_FUNC), --dynamic-list.
   for (auto *arg : args.filtered(OPT_export_dynamic_symbol))
     config->dynamicList.push_back(
         {arg->getValue(), /*isExternCpp=*/false,

@@ -1,4 +1,13 @@
-# bootstrap-zig
+# zig-espressif-bootstrap
+
+**Note:** This fork adds new CPUs for xtensa targets, replacing llvm-upstream to espressif-llvm fork.
+
+- **Xtensa**
+   - esp32
+   - esp32s2
+   - esp32s3
+   - esp8266
+   - cannon lake
 
 The purpose of this project is to start with minimum system dependencies and
 end with a fully operational Zig compiler for any target.
@@ -8,10 +17,10 @@ end with a fully operational Zig compiler for any target.
 This repository copies sources from upstream. Patches listed below. Use git
 to find and inspect the patch diffs.
 
- * LLVM, LLD, Clang 17.0.6
+ * LLVM, LLD, Clang 17.0.1 ([espressif fork](https://github.com/espressif/llvm-project))
  * zlib 1.3
  * zstd 1.5.2
- * zig 0.12.0-dev.2058+04ac028a2
+ * zig 0.12.0-dev.xtensa.2858+8e52bb152
 
 For other versions, check the git tags of this repository.
 

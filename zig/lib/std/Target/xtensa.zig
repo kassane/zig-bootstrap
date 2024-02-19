@@ -5,7 +5,39 @@ const CpuFeature = std.Target.Cpu.Feature;
 const CpuModel = std.Target.Cpu.Model;
 
 pub const Feature = enum {
+    atomctl,
+    bool,
+    clamps,
+    coprocessor,
+    debug,
     density,
+    dfpaccel,
+    div32,
+    esp32s2,
+    esp32s3,
+    exception,
+    extendedl32r,
+    fp,
+    hifi3,
+    highpriinterrupts,
+    interrupt,
+    loop,
+    mac16,
+    memctl,
+    minmax,
+    miscsr,
+    mul16,
+    mul32,
+    mul32high,
+    nsa,
+    prid,
+    regprotect,
+    rvector,
+    s32c1i,
+    sext,
+    threadptr,
+    timerint,
+    windowed,
 };
 
 pub const featureSet = CpuFeature.feature_set_fns(Feature).featureSet;
@@ -17,9 +49,169 @@ pub const all_features = blk: {
     const len = @typeInfo(Feature).Enum.fields.len;
     std.debug.assert(len <= CpuFeature.Set.needed_bit_count);
     var result: [len]CpuFeature = undefined;
+    result[@intFromEnum(Feature.atomctl)] = .{
+        .llvm_name = "atomctl",
+        .description = "Enable Xtensa ATOMCTL option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.bool)] = .{
+        .llvm_name = "bool",
+        .description = "Enable Xtensa Boolean extension",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.clamps)] = .{
+        .llvm_name = "clamps",
+        .description = "Enable Xtensa CLAMPS option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.coprocessor)] = .{
+        .llvm_name = "coprocessor",
+        .description = "Enable Xtensa Coprocessor option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.debug)] = .{
+        .llvm_name = "debug",
+        .description = "Enable Xtensa Debug option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
     result[@intFromEnum(Feature.density)] = .{
         .llvm_name = "density",
         .description = "Enable Density instructions",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.dfpaccel)] = .{
+        .llvm_name = "dfpaccel",
+        .description = "Enable Xtensa Double Precision FP acceleration",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.div32)] = .{
+        .llvm_name = "div32",
+        .description = "Enable Xtensa Div32 option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.esp32s2)] = .{
+        .llvm_name = "esp32s2",
+        .description = "Support Xtensa esp32-s2 ISA extension",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.esp32s3)] = .{
+        .llvm_name = "esp32s3",
+        .description = "Support Xtensa esp32-s3 ISA extension",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.exception)] = .{
+        .llvm_name = "exception",
+        .description = "Enable Xtensa Exception option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.extendedl32r)] = .{
+        .llvm_name = "extendedl32r",
+        .description = "Enable Xtensa Extended L32R option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.fp)] = .{
+        .llvm_name = "fp",
+        .description = "Enable Xtensa Single FP instructions",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.hifi3)] = .{
+        .llvm_name = "hifi3",
+        .description = "Enable Xtensa HIFI3 instructions",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.highpriinterrupts)] = .{
+        .llvm_name = "highpriinterrupts",
+        .description = "Enable Xtensa HighPriInterrupts option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.interrupt)] = .{
+        .llvm_name = "interrupt",
+        .description = "Enable Xtensa Interrupt option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.loop)] = .{
+        .llvm_name = "loop",
+        .description = "Enable Xtensa Loop extension",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.mac16)] = .{
+        .llvm_name = "mac16",
+        .description = "Enable Xtensa MAC16 instructions",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.memctl)] = .{
+        .llvm_name = "memctl",
+        .description = "Enable Xtensa MEMCTL option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.minmax)] = .{
+        .llvm_name = "minmax",
+        .description = "Enable Xtensa MINMAX option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.miscsr)] = .{
+        .llvm_name = "miscsr",
+        .description = "Enable Xtensa Miscellaneous SR option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.mul16)] = .{
+        .llvm_name = "mul16",
+        .description = "Enable Xtensa Mul16 option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.mul32)] = .{
+        .llvm_name = "mul32",
+        .description = "Enable Xtensa Mul32 option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.mul32high)] = .{
+        .llvm_name = "mul32high",
+        .description = "Enable Xtensa Mul32High option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.nsa)] = .{
+        .llvm_name = "nsa",
+        .description = "Enable Xtensa NSA option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.prid)] = .{
+        .llvm_name = "prid",
+        .description = "Enable Xtensa Processor ID option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.regprotect)] = .{
+        .llvm_name = "regprotect",
+        .description = "Enable Xtensa Region Protection option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.rvector)] = .{
+        .llvm_name = "rvector",
+        .description = "Enable Xtensa Relocatable Vector option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.s32c1i)] = .{
+        .llvm_name = "s32c1i",
+        .description = "Enable Xtensa S32C1I option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.sext)] = .{
+        .llvm_name = "sext",
+        .description = "Enable Xtensa Sign Extend option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.threadptr)] = .{
+        .llvm_name = "threadptr",
+        .description = "Enable Xtensa THREADPTR option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.timerint)] = .{
+        .llvm_name = "timerint",
+        .description = "Enable Xtensa Timer Interrupt option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.windowed)] = .{
+        .llvm_name = "windowed",
+        .description = "Enable Xtensa Windowed Register option",
         .dependencies = featureSet(&[_]Feature{}),
     };
     const ti = @typeInfo(Feature);
@@ -31,6 +223,156 @@ pub const all_features = blk: {
 };
 
 pub const cpu = struct {
+    pub const cnl = CpuModel{
+        .name = "cnl",
+        .llvm_name = "cnl",
+        .features = featureSet(&[_]Feature{
+            .atomctl,
+            .bool,
+            .coprocessor,
+            .debug,
+            .density,
+            .div32,
+            .exception,
+            .fp,
+            .hifi3,
+            .highpriinterrupts,
+            .interrupt,
+            .loop,
+            .memctl,
+            .miscsr,
+            .mul32,
+            .mul32high,
+            .nsa,
+            .prid,
+            .regprotect,
+            .rvector,
+            .s32c1i,
+            .sext,
+            .threadptr,
+            .timerint,
+            .windowed,
+        }),
+    };
+    pub const esp32 = CpuModel{
+        .name = "esp32",
+        .llvm_name = "esp32",
+        .features = featureSet(&[_]Feature{
+            .atomctl,
+            .bool,
+            .clamps,
+            .coprocessor,
+            .debug,
+            .density,
+            .dfpaccel,
+            .div32,
+            .exception,
+            .fp,
+            .highpriinterrupts,
+            .interrupt,
+            .loop,
+            .mac16,
+            .memctl,
+            .minmax,
+            .miscsr,
+            .mul16,
+            .mul32,
+            .mul32high,
+            .nsa,
+            .prid,
+            .regprotect,
+            .rvector,
+            .s32c1i,
+            .sext,
+            .threadptr,
+            .timerint,
+            .windowed,
+        }),
+    };
+    pub const esp32s2 = CpuModel{
+        .name = "esp32s2",
+        .llvm_name = "esp32s2",
+        .features = featureSet(&[_]Feature{
+            .clamps,
+            .coprocessor,
+            .debug,
+            .density,
+            .div32,
+            .esp32s2,
+            .exception,
+            .highpriinterrupts,
+            .interrupt,
+            .memctl,
+            .minmax,
+            .miscsr,
+            .mul16,
+            .mul32,
+            .mul32high,
+            .nsa,
+            .prid,
+            .regprotect,
+            .rvector,
+            .sext,
+            .threadptr,
+            .timerint,
+            .windowed,
+        }),
+    };
+    pub const esp32s3 = CpuModel{
+        .name = "esp32s3",
+        .llvm_name = "esp32s3",
+        .features = featureSet(&[_]Feature{
+            .atomctl,
+            .bool,
+            .clamps,
+            .coprocessor,
+            .debug,
+            .density,
+            .dfpaccel,
+            .div32,
+            .esp32s3,
+            .exception,
+            .fp,
+            .highpriinterrupts,
+            .interrupt,
+            .loop,
+            .mac16,
+            .memctl,
+            .minmax,
+            .miscsr,
+            .mul16,
+            .mul32,
+            .mul32high,
+            .nsa,
+            .prid,
+            .regprotect,
+            .rvector,
+            .s32c1i,
+            .sext,
+            .threadptr,
+            .timerint,
+            .windowed,
+        }),
+    };
+    pub const esp8266 = CpuModel{
+        .name = "esp8266",
+        .llvm_name = "esp8266",
+        .features = featureSet(&[_]Feature{
+            .debug,
+            .density,
+            .exception,
+            .extendedl32r,
+            .highpriinterrupts,
+            .interrupt,
+            .mul16,
+            .mul32,
+            .nsa,
+            .prid,
+            .regprotect,
+            .rvector,
+            .timerint,
+        }),
+    };
     pub const generic = CpuModel{
         .name = "generic",
         .llvm_name = "generic",

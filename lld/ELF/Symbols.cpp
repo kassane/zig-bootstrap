@@ -360,10 +360,10 @@ bool elf::computeIsPreemptible(const Symbol &sym) {
   if (!config->shared)
     return false;
 
-  // If -Bsymbolic or --dynamic-list is specified, or -Bsymbolic-functions is
+  // If -Bsymbolic or --dynamic-list is specified, or -shared is
   // specified and the symbol is STT_FUNC, the symbol is preemptible iff it is
   // in the dynamic list. -Bsymbolic-non-weak-functions is a non-weak subset of
-  // -Bsymbolic-functions.
+  // -shared.
   if (config->symbolic ||
       (config->bsymbolic == BsymbolicKind::Functions && sym.isFunc()) ||
       (config->bsymbolic == BsymbolicKind::NonWeakFunctions && sym.isFunc() &&
