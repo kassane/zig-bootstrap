@@ -31,7 +31,7 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run all the tests");
     const skip_install_lib_files = b.option(bool, "no-lib", "skip copying of lib/ files and langref to installation prefix. Useful for development") orelse false;
     const skip_install_langref = b.option(bool, "no-langref", "skip copying of langref to the installation prefix") orelse skip_install_lib_files;
-    const skip_install_autodocs = b.option(bool, "no-autodocs", "skip copying of standard library autodocs to the installation prefix") orelse skip_install_lib_files;
+    const std_docs = b.option(bool, "std-docs", "include standard library autodocs") orelse false;
     const no_bin = b.option(bool, "no-bin", "skip emitting compiler binary") orelse false;
 
     const docgen_exe = b.addExecutable(.{
@@ -55,17 +55,19 @@ pub fn build(b: *std.Build) !void {
         b.getInstallStep().dependOn(&install_langref.step);
     }
 
-    const autodoc_test = b.addTest(.{
+    const autodoc_test = b.addObject(.{
+        .name = "std",
         .root_source_file = .{ .path = "lib/std/std.zig" },
         .target = target,
         .zig_lib_dir = .{ .path = "lib" },
+        .optimize = .Debug,
     });
     const install_std_docs = b.addInstallDirectory(.{
         .source_dir = autodoc_test.getEmittedDocs(),
         .install_dir = .prefix,
         .install_subdir = "doc/std",
     });
-    if (!skip_install_autodocs) {
+    if (std_docs) {
         b.getInstallStep().dependOn(&install_std_docs.step);
     }
 
@@ -101,6 +103,7 @@ pub fn build(b: *std.Build) !void {
     const skip_non_native = b.option(bool, "skip-non-native", "Main test suite skips non-native builds") orelse false;
     const skip_libc = b.option(bool, "skip-libc", "Main test suite skips tests that link libc") orelse false;
     const skip_single_threaded = b.option(bool, "skip-single-threaded", "Main test suite skips tests that are single-threaded") orelse false;
+    const skip_translate_c = b.option(bool, "skip-translate-c", "Main test suite skips translate-c tests") orelse false;
     const skip_run_translated_c = b.option(bool, "skip-run-translated-c", "Main test suite skips run-translated-c tests") orelse false;
 
     const only_install_lib_files = b.option(bool, "lib-files-only", "Only install library files") orelse false;
@@ -250,6 +253,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     const is_debug = optimize == .Debug;
+    const enable_debug_extensions = b.option(bool, "debug-extensions", "Enable commands and options useful for debugging the compiler") orelse is_debug;
     const enable_logging = b.option(bool, "log", "Enable debug logging with --debug-log") orelse is_debug;
     const enable_link_snapshots = b.option(bool, "link-snapshot", "Whether to enable linker state snapshots") orelse false;
 
@@ -357,6 +361,7 @@ pub fn build(b: *std.Build) !void {
     const semver = try std.SemanticVersion.parse(version);
     exe_options.addOption(std.SemanticVersion, "semver", semver);
 
+    exe_options.addOption(bool, "enable_debug_extensions", enable_debug_extensions);
     exe_options.addOption(bool, "enable_logging", enable_logging);
     exe_options.addOption(bool, "enable_link_snapshots", enable_link_snapshots);
     exe_options.addOption(bool, "enable_tracy", tracy != null);
@@ -393,6 +398,7 @@ pub fn build(b: *std.Build) !void {
     check_case_exe.root_module.addOptions("build_options", test_cases_options);
 
     test_cases_options.addOption(bool, "enable_tracy", false);
+    test_cases_options.addOption(bool, "enable_debug_extensions", enable_debug_extensions);
     test_cases_options.addOption(bool, "enable_logging", enable_logging);
     test_cases_options.addOption(bool, "enable_link_snapshots", enable_link_snapshots);
     test_cases_options.addOption(bool, "skip_non_native", skip_non_native);
@@ -450,7 +456,10 @@ pub fn build(b: *std.Build) !void {
     }).step);
 
     const test_cases_step = b.step("test-cases", "Run the main compiler test cases");
-    try tests.addCases(b, test_cases_step, test_filters, check_case_exe, .{
+    try tests.addCases(b, test_cases_step, test_filters, check_case_exe, target, .{
+        .skip_translate_c = skip_translate_c,
+        .skip_run_translated_c = skip_run_translated_c,
+    }, .{
         .enable_llvm = enable_llvm,
         .llvm_has_m68k = llvm_has_m68k,
         .llvm_has_csky = llvm_has_csky,
@@ -522,11 +531,6 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(tests.addStackTraceTests(b, test_filters, optimization_modes));
     test_step.dependOn(tests.addCliTests(b));
     test_step.dependOn(tests.addAssembleAndLinkTests(b, test_filters, optimization_modes));
-    test_step.dependOn(tests.addTranslateCTests(b, test_filters));
-    if (!skip_run_translated_c) {
-        test_step.dependOn(tests.addRunTranslatedCTests(b, test_filters, target));
-    }
-
     test_step.dependOn(tests.addModuleTests(b, .{
         .test_filters = test_filters,
         .root_src = "lib/std/std.zig",
@@ -588,6 +592,7 @@ fn addWasiUpdateStep(b: *std.Build, version: [:0]const u8) !void {
     exe_options.addOption(bool, "only_c", true);
     exe_options.addOption([:0]const u8, "version", version);
     exe_options.addOption(std.SemanticVersion, "semver", semver);
+    exe_options.addOption(bool, "enable_debug_extensions", false);
     exe_options.addOption(bool, "enable_logging", false);
     exe_options.addOption(bool, "enable_link_snapshots", false);
     exe_options.addOption(bool, "enable_tracy", false);
@@ -850,7 +855,7 @@ fn addCMakeLibraryList(exe: *std.Build.Step.Compile, list: []const u8) void {
 }
 
 const CMakeConfig = struct {
-    llvm_linkage: std.Build.Step.Compile.Linkage,
+    llvm_linkage: std.builtin.LinkMode,
     cmake_binary_dir: []const u8,
     cmake_prefix_path: []const u8,
     cmake_static_library_prefix: []const u8,

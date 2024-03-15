@@ -443,12 +443,9 @@ pub const Inst = struct {
         /// Result type is always void.
         /// Uses the `dbg_stmt` field.
         dbg_stmt,
-        /// Marks the start of an inline call.
-        /// Uses the `ty_fn` field.
-        dbg_inline_begin,
-        /// Marks the end of an inline call.
-        /// Uses the `ty_fn` field.
-        dbg_inline_end,
+        /// A block that represents an inlined function call.
+        /// Uses the `ty_pl` field. Payload is `DbgInlineBlock`.
+        dbg_inline_block,
         /// Marks the beginning of a local variable. The operand is a pointer pointing
         /// to the storage for the variable. The local may be a const or a var.
         /// Result type is always void.
@@ -1051,10 +1048,6 @@ pub const Inst = struct {
             // Index into a different array.
             payload: u32,
         },
-        ty_fn: struct {
-            ty: Ref,
-            func: InternPool.Index,
-        },
         br: struct {
             block_inst: Index,
             operand: Ref,
@@ -1102,10 +1095,10 @@ pub const Inst = struct {
         };
 
         // Make sure we don't accidentally add a field to make this union
-        // bigger than expected. Note that in Debug builds, Zig is allowed
+        // bigger than expected. Note that in safety builds, Zig is allowed
         // to insert a secret field for safety checks.
         comptime {
-            if (builtin.mode != .Debug and builtin.mode != .ReleaseSafe) {
+            if (!std.debug.runtime_safety) {
                 assert(@sizeOf(Data) == 8);
             }
         }
@@ -1114,6 +1107,12 @@ pub const Inst = struct {
 
 /// Trailing is a list of instruction indexes for every `body_len`.
 pub const Block = struct {
+    body_len: u32,
+};
+
+/// Trailing is a list of instruction indexes for every `body_len`.
+pub const DbgInlineBlock = struct {
+    func: InternPool.Index,
     body_len: u32,
 };
 
@@ -1371,6 +1370,7 @@ pub fn typeOfIndex(air: *const Air, inst: Air.Inst.Index, ip: *const InternPool)
 
         .assembly,
         .block,
+        .dbg_inline_block,
         .struct_field_ptr,
         .struct_field_val,
         .slice_elem_ptr,
@@ -1448,8 +1448,6 @@ pub fn typeOfIndex(air: *const Air, inst: Air.Inst.Index, ip: *const InternPool)
 
         .breakpoint,
         .dbg_stmt,
-        .dbg_inline_begin,
-        .dbg_inline_end,
         .dbg_var_ptr,
         .dbg_var_val,
         .store,
@@ -1606,8 +1604,7 @@ pub fn mustLower(air: Air, inst: Air.Inst.Index, ip: *const InternPool) bool {
         .@"try",
         .try_ptr,
         .dbg_stmt,
-        .dbg_inline_begin,
-        .dbg_inline_end,
+        .dbg_inline_block,
         .dbg_var_ptr,
         .dbg_var_val,
         .ret,

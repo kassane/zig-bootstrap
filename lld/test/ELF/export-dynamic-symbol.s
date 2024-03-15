@@ -45,7 +45,7 @@
 # RUN: llvm-objdump -d %t.noop | FileCheck --check-prefix=PLT2 %s
 
 ## --export-dynamic-symbol can make a symbol preemptible even if it would be otherwise
-## non-preemptible (due to -Bsymbolic, -shared or --dynamic-list).
+## non-preemptible (due to -Bsymbolic, -Bsymbolic-functions or --dynamic-list).
 # RUN: ld.lld -shared -Bsymbolic --export-dynamic-symbol nomatch %t.o -o %t.nopreempt
 # RUN: llvm-objdump -d %t.nopreempt | FileCheck --check-prefix=NOPLT %s
 # RUN: ld.lld -shared -Bsymbolic --export-dynamic-symbol foo %t.o -o %t.preempt
@@ -54,9 +54,9 @@
 # RUN: llvm-objdump -d %t.preempt | FileCheck --check-prefix=PLT1 %s
 
 ## 'nomatch' does not match any symbol. Don't warn.
-# RUN: ld.lld --fatal-warnings -shared -shared --export-dynamic-symbol nomatch %t.o -o %t.nopreempt2
+# RUN: ld.lld --fatal-warnings -shared -Bsymbolic-functions --export-dynamic-symbol nomatch %t.o -o %t.nopreempt2
 # RUN: llvm-objdump -d %t.nopreempt2 | FileCheck --check-prefix=NOPLT %s
-# RUN: ld.lld -shared -shared --export-dynamic-symbol foo %t.o -o %t.preempt2
+# RUN: ld.lld -shared -Bsymbolic-functions --export-dynamic-symbol foo %t.o -o %t.preempt2
 # RUN: llvm-objdump -d %t.preempt2 | FileCheck --check-prefix=PLT1 %s
 
 # RUN: echo '{};' > %t.list

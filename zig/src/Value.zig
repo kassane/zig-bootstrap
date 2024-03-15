@@ -424,22 +424,28 @@ pub fn toType(self: Value) Type {
 
 pub fn intFromEnum(val: Value, ty: Type, mod: *Module) Allocator.Error!Value {
     const ip = &mod.intern_pool;
-    return switch (ip.indexToKey(ip.typeOf(val.toIntern()))) {
+    const enum_ty = ip.typeOf(val.toIntern());
+    return switch (ip.indexToKey(enum_ty)) {
         // Assume it is already an integer and return it directly.
         .simple_type, .int_type => val,
         .enum_literal => |enum_literal| {
             const field_index = ty.enumFieldIndex(enum_literal, mod).?;
-            return switch (ip.indexToKey(ty.toIntern())) {
+            switch (ip.indexToKey(ty.toIntern())) {
                 // Assume it is already an integer and return it directly.
-                .simple_type, .int_type => val,
-                .enum_type => |enum_type| if (enum_type.values.len != 0)
-                    Value.fromInterned(enum_type.values.get(ip)[field_index])
-                else // Field index and integer values are the same.
-                    mod.intValue(Type.fromInterned(enum_type.tag_ty), field_index),
+                .simple_type, .int_type => return val,
+                .enum_type => {
+                    const enum_type = ip.loadEnumType(ty.toIntern());
+                    if (enum_type.values.len != 0) {
+                        return Value.fromInterned(enum_type.values.get(ip)[field_index]);
+                    } else {
+                        // Field index and integer values are the same.
+                        return mod.intValue(Type.fromInterned(enum_type.tag_ty), field_index);
+                    }
+                },
                 else => unreachable,
-            };
+            }
         },
-        .enum_type => |enum_type| try mod.getCoerced(val, Type.fromInterned(enum_type.tag_ty)),
+        .enum_type => try mod.getCoerced(val, Type.fromInterned(ip.loadEnumType(enum_ty).tag_ty)),
         else => unreachable,
     };
 }
@@ -670,8 +676,8 @@ pub fn writeToMemory(val: Value, ty: Type, mod: *Module, buffer: []u8) error{
         .Struct => {
             const struct_type = mod.typeToStruct(ty) orelse return error.IllDefinedMemoryLayout;
             switch (struct_type.layout) {
-                .Auto => return error.IllDefinedMemoryLayout,
-                .Extern => for (0..struct_type.field_types.len) |i| {
+                .auto => return error.IllDefinedMemoryLayout,
+                .@"extern" => for (0..struct_type.field_types.len) |i| {
                     const off: usize = @intCast(ty.structFieldOffset(i, mod));
                     const field_val = switch (val.ip_index) {
                         .none => switch (val.tag()) {
@@ -695,7 +701,7 @@ pub fn writeToMemory(val: Value, ty: Type, mod: *Module, buffer: []u8) error{
                     const field_ty = Type.fromInterned(struct_type.field_types.get(ip)[i]);
                     try writeToMemory(field_val, field_ty, mod, buffer[off..]);
                 },
-                .Packed => {
+                .@"packed" => {
                     const byte_count = (@as(usize, @intCast(ty.bitSize(mod))) + 7) / 8;
                     return writeToPackedMemory(val, ty, mod, buffer[0..byte_count], 0);
                 },
@@ -718,8 +724,8 @@ pub fn writeToMemory(val: Value, ty: Type, mod: *Module, buffer: []u8) error{
             bigint.writeTwosComplement(buffer[0..byte_count], endian);
         },
         .Union => switch (ty.containerLayout(mod)) {
-            .Auto => return error.IllDefinedMemoryLayout, // Sema is supposed to have emitted a compile error already
-            .Extern => {
+            .auto => return error.IllDefinedMemoryLayout, // Sema is supposed to have emitted a compile error already
+            .@"extern" => {
                 if (val.unionTag(mod)) |union_tag| {
                     const union_obj = mod.typeToUnion(ty).?;
                     const field_index = mod.unionTagFieldIndex(union_obj, union_tag).?;
@@ -733,7 +739,7 @@ pub fn writeToMemory(val: Value, ty: Type, mod: *Module, buffer: []u8) error{
                     return writeToMemory(val.unionValue(mod), backing_ty, mod, buffer[0..byte_count]);
                 }
             },
-            .Packed => {
+            .@"packed" => {
                 const backing_ty = try ty.unionBackingType(mod);
                 const byte_count: usize = @intCast(backing_ty.abiSize(mod));
                 return writeToPackedMemory(val, ty, mod, buffer[0..byte_count], 0);
@@ -832,10 +838,10 @@ pub fn writeToPackedMemory(
             }
         },
         .Struct => {
-            const struct_type = ip.indexToKey(ty.toIntern()).struct_type;
+            const struct_type = ip.loadStructType(ty.toIntern());
             // Sema is supposed to have emitted a compile error already in the case of Auto,
             // and Extern is handled in non-packed writeToMemory.
-            assert(struct_type.layout == .Packed);
+            assert(struct_type.layout == .@"packed");
             var bits: u16 = 0;
             for (0..struct_type.field_types.len) |i| {
                 const field_val = switch (val.ip_index) {
@@ -860,8 +866,8 @@ pub fn writeToPackedMemory(
         .Union => {
             const union_obj = mod.typeToUnion(ty).?;
             switch (union_obj.getLayout(ip)) {
-                .Auto, .Extern => unreachable, // Handled in non-packed writeToMemory
-                .Packed => {
+                .auto, .@"extern" => unreachable, // Handled in non-packed writeToMemory
+                .@"packed" => {
                     if (val.unionTag(mod)) |union_tag| {
                         const field_index = mod.unionTagFieldIndex(union_obj, union_tag).?;
                         const field_type = Type.fromInterned(union_obj.field_types.get(ip)[field_index]);
@@ -985,8 +991,8 @@ pub fn readFromMemory(
         .Struct => {
             const struct_type = mod.typeToStruct(ty).?;
             switch (struct_type.layout) {
-                .Auto => unreachable, // Sema is supposed to have emitted a compile error already
-                .Extern => {
+                .auto => unreachable, // Sema is supposed to have emitted a compile error already
+                .@"extern" => {
                     const field_types = struct_type.field_types;
                     const field_vals = try arena.alloc(InternPool.Index, field_types.len);
                     for (field_vals, 0..) |*field_val, i| {
@@ -1000,7 +1006,7 @@ pub fn readFromMemory(
                         .storage = .{ .elems = field_vals },
                     } })));
                 },
-                .Packed => {
+                .@"packed" => {
                     const byte_count = (@as(usize, @intCast(ty.bitSize(mod))) + 7) / 8;
                     return readFromPackedMemory(ty, mod, buffer[0..byte_count], 0, arena);
                 },
@@ -1019,8 +1025,8 @@ pub fn readFromMemory(
             } })));
         },
         .Union => switch (ty.containerLayout(mod)) {
-            .Auto => return error.IllDefinedMemoryLayout,
-            .Extern => {
+            .auto => return error.IllDefinedMemoryLayout,
+            .@"extern" => {
                 const union_size = ty.abiSize(mod);
                 const array_ty = try mod.arrayType(.{ .len = union_size, .child = .u8_type });
                 const val = try (try readFromMemory(array_ty, mod, buffer, arena)).intern(array_ty, mod);
@@ -1030,7 +1036,7 @@ pub fn readFromMemory(
                     .val = val,
                 } })));
             },
-            .Packed => {
+            .@"packed" => {
                 const byte_count = (@as(usize, @intCast(ty.bitSize(mod))) + 7) / 8;
                 return readFromPackedMemory(ty, mod, buffer[0..byte_count], 0, arena);
             },
@@ -1171,8 +1177,8 @@ pub fn readFromPackedMemory(
             } })));
         },
         .Union => switch (ty.containerLayout(mod)) {
-            .Auto, .Extern => unreachable, // Handled by non-packed readFromMemory
-            .Packed => {
+            .auto, .@"extern" => unreachable, // Handled by non-packed readFromMemory
+            .@"packed" => {
                 const backing_ty = try ty.unionBackingType(mod);
                 const val = (try readFromPackedMemory(backing_ty, mod, buffer, bit_offset, arena)).toIntern();
                 return Value.fromInterned((try mod.intern(.{ .un = .{
@@ -4058,7 +4064,7 @@ fn dbHelper(self: *Value, tag_to_payload_map: *map: {
         .alignment = 0,
     };
     break :map @Type(.{ .Struct = .{
-        .layout = .Extern,
+        .layout = .@"extern",
         .fields = &fields,
         .decls = &.{},
         .is_tuple = false,
@@ -4069,7 +4075,7 @@ fn dbHelper(self: *Value, tag_to_payload_map: *map: {
 }
 
 comptime {
-    if (builtin.mode == .Debug) {
+    if (!builtin.strip_debug_info) {
         _ = &dbHelper;
     }
 }

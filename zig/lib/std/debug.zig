@@ -461,7 +461,7 @@ pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize
         0 => {
             panic_stage = 1;
 
-            _ = panicking.fetchAdd(1, .SeqCst);
+            _ = panicking.fetchAdd(1, .seq_cst);
 
             // Make sure to release the mutex when done
             {
@@ -503,7 +503,7 @@ pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize
 
 /// Must be called only after adding 1 to `panicking`. There are three callsites.
 fn waitForOtherThreadToFinishPanicking() void {
-    if (panicking.fetchSub(1, .SeqCst) != 1) {
+    if (panicking.fetchSub(1, .seq_cst) != 1) {
         // Another thread is panicking, wait for the last one to finish
         // and call abort()
         if (builtin.single_threaded) unreachable;
@@ -1093,12 +1093,17 @@ fn readCoffDebugInfo(allocator: mem.Allocator, coff_obj: *coff.Coff) !ModuleDebu
             di.dwarf = dwarf;
         }
 
-        var path_buf: [windows.MAX_PATH]u8 = undefined;
-        const len = try coff_obj.getPdbPath(path_buf[0..]) orelse return di;
-        const raw_path = path_buf[0..len];
-
-        const path = try fs.path.resolve(allocator, &[_][]const u8{raw_path});
-        defer allocator.free(path);
+        const raw_path = try coff_obj.getPdbPath() orelse return di;
+        const path = blk: {
+            if (fs.path.isAbsolute(raw_path)) {
+                break :blk raw_path;
+            } else {
+                const self_dir = try fs.selfExeDirPathAlloc(allocator);
+                defer allocator.free(self_dir);
+                break :blk try fs.path.join(allocator, &.{ self_dir, raw_path });
+            }
+        };
+        defer if (path.ptr != raw_path.ptr) allocator.free(path);
 
         di.pdb = pdb.Pdb.init(allocator, path) catch |err| switch (err) {
             error.FileNotFound, error.IsDir => {
@@ -2587,7 +2592,7 @@ fn handleSegfaultPosix(sig: i32, info: *const os.siginfo_t, ctx_ptr: ?*const any
     nosuspend switch (panic_stage) {
         0 => {
             panic_stage = 1;
-            _ = panicking.fetchAdd(1, .SeqCst);
+            _ = panicking.fetchAdd(1, .seq_cst);
 
             {
                 panic_mutex.lock();
@@ -2663,7 +2668,7 @@ fn handleSegfaultWindowsExtra(
         nosuspend switch (panic_stage) {
             0 => {
                 panic_stage = 1;
-                _ = panicking.fetchAdd(1, .SeqCst);
+                _ = panicking.fetchAdd(1, .seq_cst);
 
                 {
                     panic_mutex.lock();

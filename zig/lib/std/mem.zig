@@ -238,7 +238,7 @@ pub fn zeroes(comptime T: type) T {
         },
         .Struct => |struct_info| {
             if (@sizeOf(T) == 0) return undefined;
-            if (struct_info.layout == .Extern) {
+            if (struct_info.layout == .@"extern") {
                 var item: T = undefined;
                 @memset(asBytes(&item), 0);
                 return item;
@@ -284,7 +284,7 @@ pub fn zeroes(comptime T: type) T {
             return @splat(zeroes(info.child));
         },
         .Union => |info| {
-            if (info.layout == .Extern) {
+            if (info.layout == .@"extern") {
                 var item: T = undefined;
                 @memset(asBytes(&item), 0);
                 return item;
@@ -429,7 +429,7 @@ pub fn zeroInit(comptime T: type, init: anytype) T {
                         }
                     }
 
-                    var value: T = if (struct_info.layout == .Extern) zeroes(T) else undefined;
+                    var value: T = if (struct_info.layout == .@"extern") zeroes(T) else undefined;
 
                     inline for (struct_info.fields, 0..) |field, i| {
                         if (field.is_comptime) {
@@ -3385,9 +3385,9 @@ test "indexOfMax" {
 }
 
 /// Finds the indices of the smallest and largest number in a slice. O(n).
-/// Returns an anonymous struct with the fields `index_min` and `index_max`.
+/// Returns the indices of the smallest and largest numbers in that order.
 /// `slice` must not be empty.
-pub fn indexOfMinMax(comptime T: type, slice: []const T) IndexOfMinMaxResult {
+pub fn indexOfMinMax(comptime T: type, slice: []const T) struct { usize, usize } {
     assert(slice.len > 0);
     var minVal = slice[0];
     var maxVal = slice[0];
@@ -3403,15 +3403,13 @@ pub fn indexOfMinMax(comptime T: type, slice: []const T) IndexOfMinMaxResult {
             maxIdx = i + 1;
         }
     }
-    return .{ .index_min = minIdx, .index_max = maxIdx };
+    return .{ minIdx, maxIdx };
 }
 
-pub const IndexOfMinMaxResult = struct { index_min: usize, index_max: usize };
-
 test "indexOfMinMax" {
-    try testing.expectEqual(IndexOfMinMaxResult{ .index_min = 0, .index_max = 6 }, indexOfMinMax(u8, "abcdefg"));
-    try testing.expectEqual(IndexOfMinMaxResult{ .index_min = 1, .index_max = 0 }, indexOfMinMax(u8, "gabcdef"));
-    try testing.expectEqual(IndexOfMinMaxResult{ .index_min = 0, .index_max = 0 }, indexOfMinMax(u8, "a"));
+    try testing.expectEqual(.{ 0, 6 }, indexOfMinMax(u8, "abcdefg"));
+    try testing.expectEqual(.{ 1, 0 }, indexOfMinMax(u8, "gabcdef"));
+    try testing.expectEqual(.{ 0, 0 }, indexOfMinMax(u8, "a"));
 }
 
 pub fn swap(comptime T: type, a: *T, b: *T) void {

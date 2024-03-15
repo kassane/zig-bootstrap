@@ -1247,9 +1247,11 @@ pub const Object = struct {
             );
             defer bitcode_memory_buffer.dispose();
 
+            context.enableBrokenDebugInfoCheck();
+
             var module: *llvm.Module = undefined;
-            if (context.parseBitcodeInContext2(bitcode_memory_buffer, &module).toBool()) {
-                std.debug.print("Failed to parse bitcode\n", .{});
+            if (context.parseBitcodeInContext2(bitcode_memory_buffer, &module).toBool() or context.getBrokenDebugInfo()) {
+                log.err("Failed to parse bitcode", .{});
                 return error.FailedToEmit;
             }
             break :emit .{ context, module };
@@ -1278,7 +1280,7 @@ pub const Object = struct {
 
         const reloc_mode: llvm.RelocMode = if (pic)
             .PIC
-        else if (self.module.comp.config.link_mode == .Dynamic)
+        else if (self.module.comp.config.link_mode == .dynamic)
             llvm.RelocMode.DynamicNoPIC
         else
             .Static;
@@ -1873,10 +1875,10 @@ pub const Object = struct {
         if (comp.config.dll_export_fns)
             global_index.setDllStorageClass(.dllexport, &o.builder);
         global_index.setLinkage(switch (exports[0].opts.linkage) {
-            .Internal => unreachable,
-            .Strong => .external,
-            .Weak => .weak_odr,
-            .LinkOnce => .linkonce_odr,
+            .internal => unreachable,
+            .strong => .external,
+            .weak => .weak_odr,
+            .link_once => .linkonce_odr,
         }, &o.builder);
         global_index.setVisibility(switch (exports[0].opts.visibility) {
             .default => .default,
@@ -1997,7 +1999,7 @@ pub const Object = struct {
                     return debug_enum_type;
                 }
 
-                const enum_type = ip.indexToKey(ty.toIntern()).enum_type;
+                const enum_type = ip.loadEnumType(ty.toIntern());
 
                 const enumerators = try gpa.alloc(Builder.Metadata, enum_type.names.len);
                 defer gpa.free(enumerators);
@@ -2015,7 +2017,7 @@ pub const Object = struct {
 
                     enumerators[i] = try o.builder.debugEnumerator(
                         try o.builder.metadataString(ip.stringToSlice(field_name_ip)),
-                        int_ty.isUnsignedInt(mod),
+                        int_info.signedness == .unsigned,
                         int_info.bits,
                         bigint,
                     );
@@ -2507,8 +2509,8 @@ pub const Object = struct {
                         try o.debug_type_map.put(gpa, ty, debug_struct_type);
                         return debug_struct_type;
                     },
-                    .struct_type => |struct_type| {
-                        if (!struct_type.haveFieldTypes(ip)) {
+                    .struct_type => {
+                        if (!ip.loadStructType(ty.toIntern()).haveFieldTypes(ip)) {
                             // This can happen if a struct type makes it all the way to
                             // flush() without ever being instantiated or referenced (even
                             // via pointer). The only reason we are hearing about it now is
@@ -2597,15 +2599,14 @@ pub const Object = struct {
                 const name = try o.allocTypeName(ty);
                 defer gpa.free(name);
 
-                const union_type = ip.indexToKey(ty.toIntern()).union_type;
+                const union_type = ip.loadUnionType(ty.toIntern());
                 if (!union_type.haveFieldTypes(ip) or !ty.hasRuntimeBitsIgnoreComptime(mod)) {
                     const debug_union_type = try o.makeEmptyNamespaceDebugType(owner_decl_index);
                     try o.debug_type_map.put(gpa, ty, debug_union_type);
                     return debug_union_type;
                 }
 
-                const union_obj = ip.loadUnionType(union_type);
-                const layout = mod.getUnionLayout(union_obj);
+                const layout = mod.getUnionLayout(union_type);
 
                 const debug_fwd_ref = try o.builder.debugForwardReference();
 
@@ -2622,7 +2623,7 @@ pub const Object = struct {
                         ty.abiSize(mod) * 8,
                         ty.abiAlignment(mod).toByteUnits(0) * 8,
                         try o.builder.debugTuple(
-                            &.{try o.lowerDebugType(Type.fromInterned(union_obj.enum_tag_ty))},
+                            &.{try o.lowerDebugType(Type.fromInterned(union_type.enum_tag_ty))},
                         ),
                     );
 
@@ -2636,21 +2637,23 @@ pub const Object = struct {
                 var fields: std.ArrayListUnmanaged(Builder.Metadata) = .{};
                 defer fields.deinit(gpa);
 
-                try fields.ensureUnusedCapacity(gpa, union_obj.field_names.len);
+                try fields.ensureUnusedCapacity(gpa, union_type.loadTagType(ip).names.len);
 
                 const debug_union_fwd_ref = if (layout.tag_size == 0)
                     debug_fwd_ref
                 else
                     try o.builder.debugForwardReference();
 
-                for (0..union_obj.field_names.len) |field_index| {
-                    const field_ty = union_obj.field_types.get(ip)[field_index];
+                const tag_type = union_type.loadTagType(ip);
+
+                for (0..tag_type.names.len) |field_index| {
+                    const field_ty = union_type.field_types.get(ip)[field_index];
                     if (!Type.fromInterned(field_ty).hasRuntimeBitsIgnoreComptime(mod)) continue;
 
                     const field_size = Type.fromInterned(field_ty).abiSize(mod);
-                    const field_align = mod.unionFieldNormalAlignment(union_obj, @intCast(field_index));
+                    const field_align = mod.unionFieldNormalAlignment(union_type, @intCast(field_index));
 
-                    const field_name = union_obj.field_names.get(ip)[field_index];
+                    const field_name = tag_type.names.get(ip)[field_index];
                     fields.appendAssumeCapacity(try o.builder.debugMemberType(
                         try o.builder.metadataString(ip.stringToSlice(field_name)),
                         .none, // File
@@ -2706,7 +2709,7 @@ pub const Object = struct {
                     .none, // File
                     debug_fwd_ref,
                     0, // Line
-                    try o.lowerDebugType(Type.fromInterned(union_obj.enum_tag_ty)),
+                    try o.lowerDebugType(Type.fromInterned(union_type.enum_tag_ty)),
                     layout.tag_size * 8,
                     layout.tag_align.toByteUnits(0) * 8,
                     tag_offset * 8,
@@ -3321,10 +3324,12 @@ pub const Object = struct {
                     return o.builder.structType(.normal, fields[0..fields_len]);
                 },
                 .simple_type => unreachable,
-                .struct_type => |struct_type| {
+                .struct_type => {
                     if (o.type_map.get(t.toIntern())) |value| return value;
 
-                    if (struct_type.layout == .Packed) {
+                    const struct_type = ip.loadStructType(t.toIntern());
+
+                    if (struct_type.layout == .@"packed") {
                         const int_ty = try o.lowerType(Type.fromInterned(struct_type.backingIntType(ip).*));
                         try o.type_map.put(o.gpa, t.toIntern(), int_ty);
                         return int_ty;
@@ -3468,13 +3473,13 @@ pub const Object = struct {
                     }
                     return o.builder.structType(.normal, llvm_field_types.items);
                 },
-                .union_type => |union_type| {
+                .union_type => {
                     if (o.type_map.get(t.toIntern())) |value| return value;
 
-                    const union_obj = ip.loadUnionType(union_type);
+                    const union_obj = ip.loadUnionType(t.toIntern());
                     const layout = mod.getUnionLayout(union_obj);
 
-                    if (union_obj.flagsPtr(ip).layout == .Packed) {
+                    if (union_obj.flagsPtr(ip).layout == .@"packed") {
                         const int_ty = try o.builder.intType(@intCast(t.bitSize(mod)));
                         try o.type_map.put(o.gpa, t.toIntern(), int_ty);
                         return int_ty;
@@ -3545,17 +3550,16 @@ pub const Object = struct {
                     );
                     return ty;
                 },
-                .opaque_type => |opaque_type| {
+                .opaque_type => {
                     const gop = try o.type_map.getOrPut(o.gpa, t.toIntern());
                     if (!gop.found_existing) {
-                        const name = try o.builder.string(ip.stringToSlice(
-                            try mod.opaqueFullyQualifiedName(opaque_type),
-                        ));
+                        const decl = mod.declPtr(ip.loadOpaqueType(t.toIntern()).decl);
+                        const name = try o.builder.string(ip.stringToSlice(try decl.fullyQualifiedName(mod)));
                         gop.value_ptr.* = try o.builder.opaqueType(name);
                     }
                     return gop.value_ptr.*;
                 },
-                .enum_type => |enum_type| try o.lowerType(Type.fromInterned(enum_type.tag_ty)),
+                .enum_type => try o.lowerType(Type.fromInterned(ip.loadEnumType(t.toIntern()).tag_ty)),
                 .func_type => |func_type| try o.lowerTypeFn(func_type),
                 .error_set_type, .inferred_error_set_type => try o.errorIntType(),
                 // values, not types
@@ -4032,10 +4036,11 @@ pub const Object = struct {
                     else
                         struct_ty, vals);
                 },
-                .struct_type => |struct_type| {
+                .struct_type => {
+                    const struct_type = ip.loadStructType(ty.toIntern());
                     assert(struct_type.haveLayout(ip));
                     const struct_ty = try o.lowerType(ty);
-                    if (struct_type.layout == .Packed) {
+                    if (struct_type.layout == .@"packed") {
                         comptime assert(Type.packed_struct_layout_version == 2);
                         var running_int = try o.builder.intConst(struct_ty, 0);
                         var running_bits: u16 = 0;
@@ -4151,7 +4156,7 @@ pub const Object = struct {
                 const payload = if (un.tag != .none) p: {
                     const field_index = mod.unionTagFieldIndex(union_obj, Value.fromInterned(un.tag)).?;
                     const field_ty = Type.fromInterned(union_obj.field_types.get(ip)[field_index]);
-                    if (container_layout == .Packed) {
+                    if (container_layout == .@"packed") {
                         if (!field_ty.hasRuntimeBits(mod)) return o.builder.intConst(union_ty, 0);
                         const small_int_val = try o.builder.castConst(
                             if (field_ty.isPtrAtRuntime(mod)) .ptrtoint else .bitcast,
@@ -4187,7 +4192,7 @@ pub const Object = struct {
                 } else p: {
                     assert(layout.tag_size == 0);
                     const union_val = try o.lowerValue(un.val);
-                    if (container_layout == .Packed) {
+                    if (container_layout == .@"packed") {
                         const bitcast_val = try o.builder.castConst(
                             .bitcast,
                             union_val,
@@ -4321,7 +4326,7 @@ pub const Object = struct {
                 const field_index: u32 = @intCast(field_ptr.index);
                 switch (parent_ty.zigTypeTag(mod)) {
                     .Union => {
-                        if (parent_ty.containerLayout(mod) == .Packed) {
+                        if (parent_ty.containerLayout(mod) == .@"packed") {
                             return parent_ptr;
                         }
 
@@ -4596,7 +4601,7 @@ pub const Object = struct {
     fn getEnumTagNameFunction(o: *Object, enum_ty: Type) !Builder.Function.Index {
         const zcu = o.module;
         const ip = &zcu.intern_pool;
-        const enum_type = ip.indexToKey(enum_ty.toIntern()).enum_type;
+        const enum_type = ip.loadEnumType(enum_ty.toIntern());
 
         // TODO: detect when the type changes and re-emit this function.
         const gop = try o.decl_map.getOrPut(o.gpa, enum_type.decl);
@@ -4764,11 +4769,7 @@ pub const FuncGen = struct {
     file: Builder.Metadata,
     scope: Builder.Metadata,
 
-    inlined: std.ArrayListUnmanaged(struct {
-        base_line: u32,
-        location: Builder.DebugLocation,
-        scope: Builder.Metadata,
-    }) = .{},
+    inlined: Builder.DebugLocation = .no_location,
 
     base_line: u32,
     prev_dbg_line: c_uint,
@@ -4813,7 +4814,6 @@ pub const FuncGen = struct {
 
     fn deinit(self: *FuncGen) void {
         self.wip.deinit();
-        self.inlined.deinit(self.gpa);
         self.func_inst_table.deinit(self.gpa);
         self.blocks.deinit(self.gpa);
     }
@@ -5109,8 +5109,7 @@ pub const FuncGen = struct {
 
                 .unreach  => try self.airUnreach(inst),
                 .dbg_stmt => try self.airDbgStmt(inst),
-                .dbg_inline_begin => try self.airDbgInlineBegin(inst),
-                .dbg_inline_end => try self.airDbgInlineEnd(inst),
+                .dbg_inline_block => try self.airDbgInlineBlock(inst),
                 .dbg_var_ptr => try self.airDbgVarPtr(inst),
                 .dbg_var_val => try self.airDbgVarVal(inst),
 
@@ -5128,17 +5127,81 @@ pub const FuncGen = struct {
         }
     }
 
-    fn genBodyDebugScope(self: *FuncGen, body: []const Air.Inst.Index) Error!void {
+    fn genBodyDebugScope(self: *FuncGen, maybe_inline_func: ?InternPool.Index, body: []const Air.Inst.Index) Error!void {
         if (self.wip.strip) return self.genBody(body);
+
+        const old_file = self.file;
+        const old_inlined = self.inlined;
+        const old_base_line = self.base_line;
         const old_scope = self.scope;
+        defer if (maybe_inline_func) |_| {
+            self.wip.debug_location = self.inlined;
+            self.file = old_file;
+            self.inlined = old_inlined;
+            self.base_line = old_base_line;
+        };
+        defer self.scope = old_scope;
+
+        if (maybe_inline_func) |inline_func| {
+            const o = self.dg.object;
+            const zcu = o.module;
+
+            const func = zcu.funcInfo(inline_func);
+            const decl_index = func.owner_decl;
+            const decl = zcu.declPtr(decl_index);
+            const namespace = zcu.namespacePtr(decl.src_namespace);
+            const owner_mod = namespace.file_scope.mod;
+
+            self.file = try o.getDebugFile(namespace.file_scope);
+
+            const line_number = decl.src_line + 1;
+            self.inlined = self.wip.debug_location;
+
+            const fqn = try decl.fullyQualifiedName(zcu);
+
+            const is_internal_linkage = !zcu.decl_exports.contains(decl_index);
+            const fn_ty = try zcu.funcType(.{
+                .param_types = &.{},
+                .return_type = .void_type,
+            });
+
+            self.scope = try o.builder.debugSubprogram(
+                self.file,
+                try o.builder.metadataString(zcu.intern_pool.stringToSlice(decl.name)),
+                try o.builder.metadataString(zcu.intern_pool.stringToSlice(fqn)),
+                line_number,
+                line_number + func.lbrace_line,
+                try o.lowerDebugType(fn_ty),
+                .{
+                    .di_flags = .{ .StaticMember = true },
+                    .sp_flags = .{
+                        .Optimized = owner_mod.optimize_mode != .Debug,
+                        .Definition = true,
+                        .LocalToUnit = is_internal_linkage,
+                    },
+                },
+                o.debug_compile_unit,
+            );
+
+            self.base_line = decl.src_line;
+            const inlined_at_location = try self.wip.debug_location.toMetadata(&o.builder);
+            self.wip.debug_location = .{
+                .location = .{
+                    .line = line_number,
+                    .column = 0,
+                    .scope = self.scope,
+                    .inlined_at = inlined_at_location,
+                },
+            };
+        }
+
         self.scope = try self.dg.object.builder.debugLexicalBlock(
-            old_scope,
+            self.scope,
             self.file,
             self.prev_dbg_line,
             self.prev_dbg_column,
         );
         try self.genBody(body);
-        self.scope = old_scope;
     }
 
     pub const CallAttr = enum {
@@ -5822,15 +5885,23 @@ pub const FuncGen = struct {
     }
 
     fn airBlock(self: *FuncGen, inst: Air.Inst.Index) !Builder.Value {
-        const o = self.dg.object;
-        const mod = o.module;
         const ty_pl = self.air.instructions.items(.data)[@intFromEnum(inst)].ty_pl;
         const extra = self.air.extraData(Air.Block, ty_pl.payload);
-        const body: []const Air.Inst.Index = @ptrCast(self.air.extra[extra.end..][0..extra.data.body_len]);
+        return self.lowerBlock(inst, null, @ptrCast(self.air.extra[extra.end..][0..extra.data.body_len]));
+    }
+
+    fn lowerBlock(
+        self: *FuncGen,
+        inst: Air.Inst.Index,
+        maybe_inline_func: ?InternPool.Index,
+        body: []const Air.Inst.Index,
+    ) !Builder.Value {
+        const o = self.dg.object;
+        const mod = o.module;
         const inst_ty = self.typeOfIndex(inst);
 
         if (inst_ty.isNoReturn(mod)) {
-            try self.genBodyDebugScope(body);
+            try self.genBodyDebugScope(maybe_inline_func, body);
             return .none;
         }
 
@@ -5846,7 +5917,7 @@ pub const FuncGen = struct {
         });
         defer assert(self.blocks.remove(inst));
 
-        try self.genBodyDebugScope(body);
+        try self.genBodyDebugScope(maybe_inline_func, body);
 
         self.wip.cursor = .{ .block = parent_bb };
 
@@ -5905,10 +5976,10 @@ pub const FuncGen = struct {
         _ = try self.wip.brCond(cond, then_block, else_block);
 
         self.wip.cursor = .{ .block = then_block };
-        try self.genBody(then_body);
+        try self.genBodyDebugScope(null, then_body);
 
         self.wip.cursor = .{ .block = else_block };
-        try self.genBody(else_body);
+        try self.genBodyDebugScope(null, else_body);
 
         // No need to reset the insert cursor since this instruction is noreturn.
         return .none;
@@ -5989,7 +6060,7 @@ pub const FuncGen = struct {
             _ = try fg.wip.brCond(is_err, return_block, continue_block);
 
             fg.wip.cursor = .{ .block = return_block };
-            try fg.genBody(body);
+            try fg.genBodyDebugScope(null, body);
 
             fg.wip.cursor = .{ .block = continue_block };
         }
@@ -6062,13 +6133,13 @@ pub const FuncGen = struct {
             }
 
             self.wip.cursor = .{ .block = case_block };
-            try self.genBody(case_body);
+            try self.genBodyDebugScope(null, case_body);
         }
 
         self.wip.cursor = .{ .block = else_block };
         const else_body: []const Air.Inst.Index = @ptrCast(self.air.extra[extra_index..][0..switch_br.data.else_body_len]);
         if (else_body.len != 0) {
-            try self.genBody(else_body);
+            try self.genBodyDebugScope(null, else_body);
         } else {
             _ = try self.wip.@"unreachable"();
         }
@@ -6087,7 +6158,7 @@ pub const FuncGen = struct {
         _ = try self.wip.br(loop_block);
 
         self.wip.cursor = .{ .block = loop_block };
-        try self.genBody(body);
+        try self.genBodyDebugScope(null, body);
 
         // TODO instead of this logic, change AIR to have the property that
         // every block is guaranteed to end with a noreturn instruction.
@@ -6462,7 +6533,7 @@ pub const FuncGen = struct {
             assert(!isByRef(field_ty, mod));
             switch (struct_ty.zigTypeTag(mod)) {
                 .Struct => switch (struct_ty.containerLayout(mod)) {
-                    .Packed => {
+                    .@"packed" => {
                         const struct_type = mod.typeToStruct(struct_ty).?;
                         const bit_offset = mod.structPackedFieldBitOffset(struct_type, field_index);
                         const containing_int = struct_llvm_val;
@@ -6489,7 +6560,7 @@ pub const FuncGen = struct {
                     },
                 },
                 .Union => {
-                    assert(struct_ty.containerLayout(mod) == .Packed);
+                    assert(struct_ty.containerLayout(mod) == .@"packed");
                     const containing_int = struct_llvm_val;
                     const elem_llvm_ty = try o.lowerType(field_ty);
                     if (field_ty.zigTypeTag(mod) == .Float or field_ty.zigTypeTag(mod) == .Vector) {
@@ -6512,7 +6583,7 @@ pub const FuncGen = struct {
         switch (struct_ty.zigTypeTag(mod)) {
             .Struct => {
                 const layout = struct_ty.containerLayout(mod);
-                assert(layout != .Packed);
+                assert(layout != .@"packed");
                 const struct_llvm_ty = try o.lowerType(struct_ty);
                 const llvm_field_index = o.llvmFieldIndex(struct_ty, field_index).?;
                 const field_ptr =
@@ -6594,96 +6665,22 @@ pub const FuncGen = struct {
         self.prev_dbg_line = @intCast(self.base_line + dbg_stmt.line + 1);
         self.prev_dbg_column = @intCast(dbg_stmt.column + 1);
 
-        const inlined_at_location = if (self.inlined.getLastOrNull()) |inlined|
-            try inlined.location.toMetadata(self.wip.builder)
-        else
-            .none;
-
         self.wip.debug_location = .{
             .location = .{
                 .line = self.prev_dbg_line,
                 .column = self.prev_dbg_column,
                 .scope = self.scope,
-                .inlined_at = inlined_at_location,
+                .inlined_at = try self.inlined.toMetadata(self.wip.builder),
             },
         };
 
         return .none;
     }
 
-    fn airDbgInlineBegin(self: *FuncGen, inst: Air.Inst.Index) !Builder.Value {
-        const o = self.dg.object;
-        const zcu = o.module;
-
-        const ty_fn = self.air.instructions.items(.data)[@intFromEnum(inst)].ty_fn;
-        const func = zcu.funcInfo(ty_fn.func);
-        const decl_index = func.owner_decl;
-        const decl = zcu.declPtr(decl_index);
-        const namespace = zcu.namespacePtr(decl.src_namespace);
-        const owner_mod = namespace.file_scope.mod;
-
-        self.file = try o.getDebugFile(namespace.file_scope);
-
-        const line_number = decl.src_line + 1;
-        try self.inlined.append(self.gpa, .{
-            .location = self.wip.debug_location,
-            .scope = self.scope,
-            .base_line = self.base_line,
-        });
-
-        const fqn = try decl.fullyQualifiedName(zcu);
-
-        const is_internal_linkage = !zcu.decl_exports.contains(decl_index);
-        const fn_ty = try zcu.funcType(.{
-            .param_types = &.{},
-            .return_type = .void_type,
-        });
-
-        self.scope = try o.builder.debugSubprogram(
-            self.file,
-            try o.builder.metadataString(zcu.intern_pool.stringToSlice(decl.name)),
-            try o.builder.metadataString(zcu.intern_pool.stringToSlice(fqn)),
-            line_number,
-            line_number + func.lbrace_line,
-            try o.lowerDebugType(fn_ty),
-            .{
-                .di_flags = .{ .StaticMember = true },
-                .sp_flags = .{
-                    .Optimized = owner_mod.optimize_mode != .Debug,
-                    .Definition = true,
-                    .LocalToUnit = is_internal_linkage,
-                },
-            },
-            o.debug_compile_unit,
-        );
-
-        self.base_line = decl.src_line;
-        const inlined_at_location = try self.wip.debug_location.toMetadata(&o.builder);
-        self.wip.debug_location = .{
-            .location = .{
-                .line = line_number,
-                .column = 0,
-                .scope = self.scope,
-                .inlined_at = inlined_at_location,
-            },
-        };
-        return .none;
-    }
-
-    fn airDbgInlineEnd(self: *FuncGen, inst: Air.Inst.Index) Allocator.Error!Builder.Value {
-        const o = self.dg.object;
-
-        const ty_fn = self.air.instructions.items(.data)[@intFromEnum(inst)].ty_fn;
-
-        const mod = o.module;
-        const decl = mod.funcOwnerDeclPtr(ty_fn.func);
-        self.file = try o.getDebugFile(mod.namespacePtr(decl.src_namespace).file_scope);
-
-        const old = self.inlined.pop();
-        self.scope = old.scope;
-        self.base_line = old.base_line;
-        self.wip.debug_location = old.location;
-        return .none;
+    fn airDbgInlineBlock(self: *FuncGen, inst: Air.Inst.Index) !Builder.Value {
+        const ty_pl = self.air.instructions.items(.data)[@intFromEnum(inst)].ty_pl;
+        const extra = self.air.extraData(Air.DbgInlineBlock, ty_pl.payload);
+        return self.lowerBlock(inst, extra.data.func, @ptrCast(self.air.extra[extra.end..][0..extra.data.body_len]));
     }
 
     fn airDbgVarPtr(self: *FuncGen, inst: Air.Inst.Index) !Builder.Value {
@@ -9628,7 +9625,7 @@ pub const FuncGen = struct {
     fn getIsNamedEnumValueFunction(self: *FuncGen, enum_ty: Type) !Builder.Function.Index {
         const o = self.dg.object;
         const zcu = o.module;
-        const enum_type = zcu.intern_pool.indexToKey(enum_ty.toIntern()).enum_type;
+        const enum_type = zcu.intern_pool.loadEnumType(enum_ty.toIntern());
 
         // TODO: detect when the type changes and re-emit this function.
         const gop = try o.named_enum_map.getOrPut(o.gpa, enum_type.decl);
@@ -10000,7 +9997,7 @@ pub const FuncGen = struct {
                     return running_int;
                 }
 
-                assert(result_ty.containerLayout(mod) != .Packed);
+                assert(result_ty.containerLayout(mod) != .@"packed");
 
                 if (isByRef(result_ty, mod)) {
                     // TODO in debug builds init to undef so that the padding will be 0xaa
@@ -10085,7 +10082,7 @@ pub const FuncGen = struct {
         const layout = union_ty.unionGetLayout(mod);
         const union_obj = mod.typeToUnion(union_ty).?;
 
-        if (union_obj.getLayout(ip) == .Packed) {
+        if (union_obj.getLayout(ip) == .@"packed") {
             const big_bits = union_ty.bitSize(mod);
             const int_llvm_ty = try o.builder.intType(@intCast(big_bits));
             const field_ty = Type.fromInterned(union_obj.field_types.get(ip)[extra.field_index]);
@@ -10100,7 +10097,7 @@ pub const FuncGen = struct {
 
         const tag_int = blk: {
             const tag_ty = union_ty.unionTagTypeHypothetical(mod);
-            const union_field_name = union_obj.field_names.get(ip)[extra.field_index];
+            const union_field_name = union_obj.loadTagType(ip).names.get(ip)[extra.field_index];
             const enum_field_index = tag_ty.enumFieldIndex(union_field_name, mod).?;
             const tag_val = try mod.enumValueFieldIndex(tag_ty, enum_field_index);
             const tag_int_val = try tag_val.intFromEnum(tag_ty, mod);
@@ -10425,7 +10422,7 @@ pub const FuncGen = struct {
         const struct_ty = struct_ptr_ty.childType(mod);
         switch (struct_ty.zigTypeTag(mod)) {
             .Struct => switch (struct_ty.containerLayout(mod)) {
-                .Packed => {
+                .@"packed" => {
                     const result_ty = self.typeOfIndex(inst);
                     const result_ty_info = result_ty.ptrInfo(mod);
                     const struct_ptr_ty_info = struct_ptr_ty.ptrInfo(mod);
@@ -10467,7 +10464,7 @@ pub const FuncGen = struct {
             },
             .Union => {
                 const layout = struct_ty.unionGetLayout(mod);
-                if (layout.payload_size == 0 or struct_ty.containerLayout(mod) == .Packed) return struct_ptr;
+                if (layout.payload_size == 0 or struct_ty.containerLayout(mod) == .@"packed") return struct_ptr;
                 const payload_index = @intFromBool(layout.tag_align.compare(.gte, layout.payload_align));
                 const union_llvm_ty = try o.lowerType(struct_ty);
                 return self.wip.gepStruct(union_llvm_ty, struct_ptr, payload_index, "");
@@ -10806,12 +10803,12 @@ pub const FuncGen = struct {
 
 fn toLlvmAtomicOrdering(atomic_order: std.builtin.AtomicOrder) Builder.AtomicOrdering {
     return switch (atomic_order) {
-        .Unordered => .unordered,
-        .Monotonic => .monotonic,
-        .Acquire => .acquire,
-        .Release => .release,
-        .AcqRel => .acq_rel,
-        .SeqCst => .seq_cst,
+        .unordered => .unordered,
+        .monotonic => .monotonic,
+        .acquire => .acquire,
+        .release => .release,
+        .acq_rel => .acq_rel,
+        .seq_cst => .seq_cst,
     };
 }
 
@@ -11162,7 +11159,8 @@ fn lowerSystemVFnRetTy(o: *Object, fn_info: InternPool.Key.FuncType) Allocator.E
     if (first_non_integer == null or classes[first_non_integer.?] == .none) {
         assert(first_non_integer orelse classes.len == types_index);
         switch (ip.indexToKey(return_type.toIntern())) {
-            .struct_type => |struct_type| {
+            .struct_type => {
+                const struct_type = ip.loadStructType(return_type.toIntern());
                 assert(struct_type.haveLayout(ip));
                 const size: u64 = struct_type.size(ip).*;
                 assert((std.math.divCeil(u64, size, 8) catch unreachable) == types_index);
@@ -11454,7 +11452,8 @@ const ParamTypeIterator = struct {
                 return .byref;
             }
             switch (ip.indexToKey(ty.toIntern())) {
-                .struct_type => |struct_type| {
+                .struct_type => {
+                    const struct_type = ip.loadStructType(ty.toIntern());
                     assert(struct_type.haveLayout(ip));
                     const size: u64 = struct_type.size(ip).*;
                     assert((std.math.divCeil(u64, size, 8) catch unreachable) == types_index);
@@ -11570,12 +11569,12 @@ fn isByRef(ty: Type, mod: *Module) bool {
                     }
                     return false;
                 },
-                .struct_type => |s| s,
+                .struct_type => ip.loadStructType(ty.toIntern()),
                 else => unreachable,
             };
 
             // Packed structs are represented to LLVM as integers.
-            if (struct_type.layout == .Packed) return false;
+            if (struct_type.layout == .@"packed") return false;
 
             const field_types = struct_type.field_types.get(ip);
             var it = struct_type.iterateRuntimeOrder(ip);
@@ -11589,7 +11588,7 @@ fn isByRef(ty: Type, mod: *Module) bool {
             return false;
         },
         .Union => switch (ty.containerLayout(mod)) {
-            .Packed => return false,
+            .@"packed" => return false,
             else => return ty.hasRuntimeBits(mod),
         },
         .ErrorUnion => {
@@ -11627,8 +11626,8 @@ fn isScalar(mod: *Module, ty: Type) bool {
         .Vector,
         => true,
 
-        .Struct => ty.containerLayout(mod) == .Packed,
-        .Union => ty.containerLayout(mod) == .Packed,
+        .Struct => ty.containerLayout(mod) == .@"packed",
+        .Union => ty.containerLayout(mod) == .@"packed",
         else => false,
     };
 }

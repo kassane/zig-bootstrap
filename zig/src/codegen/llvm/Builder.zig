@@ -8398,7 +8398,7 @@ pub const Metadata = enum(u32) {
             fmt_str = fmt_str ++ ")\n";
 
             var fmt_args: @Type(.{ .Struct = .{
-                .layout = .Auto,
+                .layout = .auto,
                 .fields = &fields,
                 .decls = &.{},
                 .is_tuple = false,
@@ -14367,7 +14367,6 @@ pub fn toBitcode(self: *Builder, allocator: Allocator) bitcode_writer.Error![]co
                             try metadata_block.writeAbbrevAdapted(MetadataBlock.Enumerator{
                                 .flags = .{
                                     .unsigned = unsigned,
-                                    .bigint = false,
                                 },
                                 .bit_width = extra.bit_width,
                                 .name = extra.name,
@@ -14379,7 +14378,6 @@ pub fn toBitcode(self: *Builder, allocator: Allocator) bitcode_writer.Error![]co
 
                             const flags: MetadataBlock.Enumerator.Flags = .{
                                 .unsigned = unsigned,
-                                .bigint = true,
                             };
 
                             const FlagsInt = @typeInfo(MetadataBlock.Enumerator.Flags).Struct.backing_integer.?;

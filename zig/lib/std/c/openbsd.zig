@@ -388,6 +388,8 @@ pub const sockaddr = extern struct {
     };
 };
 
+pub const IFNAMESIZE = 16;
+
 pub const AI = struct {
     /// get address to use bind()
     pub const PASSIVE = 1;
@@ -893,11 +895,6 @@ comptime {
         // Take into account the padding between errno and data fields.
         std.debug.assert(@sizeOf(siginfo_t) == 136);
 }
-
-pub usingnamespace switch (builtin.cpu.arch) {
-    .x86_64 => struct {},
-    else => struct {},
-};
 
 pub const ucontext_t = switch (builtin.cpu.arch) {
     .x86_64 => extern struct {

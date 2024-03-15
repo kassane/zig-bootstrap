@@ -56,7 +56,7 @@ if(LLVM_BUILD_LLVM_DYLIB)
       # reduce dynamic relocations.
       # Note: for -fno-pic default, the address of a function may be different from
       # inside and outside libLLVM.so.
-      target_link_options(LLVM PRIVATE LINKER:-shared)
+      target_link_options(LLVM PRIVATE LINKER:-Bsymbolic-functions)
     endif()
   elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
     set(LIB_NAMES -Wl,-all_load ${LIB_NAMES})

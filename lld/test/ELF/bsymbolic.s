@@ -6,13 +6,13 @@
 # RUN: llvm-readobj -r %t0.so | FileCheck %s --check-prefix=REL_DEF
 # RUN: llvm-objdump -d %t0.so | FileCheck %s --check-prefix=ASM_DEF
 
-## -shared makes all STB_GLOBAL STT_FUNC definitions non-preemptible.
+## -Bsymbolic-functions makes all STB_GLOBAL STT_FUNC definitions non-preemptible.
 # RUN: ld.lld -shared -Bsymbolic-non-weak-functions %t/a.o %t/b.o -o %t1.so
 # RUN: llvm-readobj -r %t1.so | FileCheck %s --check-prefix=REL_GFUN
 # RUN: llvm-objdump -d %t1.so | FileCheck %s --check-prefix=ASM_GFUN
 
-## -shared makes all STT_FUNC definitions non-preemptible.
-# RUN: ld.lld -shared -shared %t/a.o %t/b.o -o %t2.so
+## -Bsymbolic-functions makes all STT_FUNC definitions non-preemptible.
+# RUN: ld.lld -shared -Bsymbolic-functions %t/a.o %t/b.o -o %t2.so
 # RUN: llvm-readobj -r %t2.so | FileCheck %s --check-prefix=REL_FUN
 # RUN: llvm-objdump -d %t2.so | FileCheck %s --check-prefix=ASM_FUN
 
@@ -21,17 +21,17 @@
 # RUN: llvm-readobj -r %t3.so | FileCheck %s --check-prefix=REL_ALL
 # RUN: llvm-objdump -d %t3.so | FileCheck %s --check-prefix=ASM_ALL
 
-# RUN: ld.lld -shared -shared -Bsymbolic %t/a.o %t/b.o -o %t.so
+# RUN: ld.lld -shared -Bsymbolic-functions -Bsymbolic %t/a.o %t/b.o -o %t.so
 # RUN: cmp %t.so %t3.so
-# RUN: ld.lld -shared -Bsymbolic -shared %t/a.o %t/b.o -o %t.so
+# RUN: ld.lld -shared -Bsymbolic -Bsymbolic-functions %t/a.o %t/b.o -o %t.so
 # RUN: cmp %t.so %t2.so
 # RUN: ld.lld -shared -Bno-symbolic -Bsymbolic %t/a.o %t/b.o -o %t.so
 # RUN: cmp %t.so %t3.so
 
-## -Bno-symbolic can cancel previously specified -Bsymbolic and -shared.
+## -Bno-symbolic can cancel previously specified -Bsymbolic and -Bsymbolic-functions.
 # RUN: ld.lld -shared -Bsymbolic -Bno-symbolic %t/a.o %t/b.o -o %t.so
 # RUN: cmp %t.so %t0.so
-# RUN: ld.lld -shared -shared -Bno-symbolic %t/a.o %t/b.o -o %t.so
+# RUN: ld.lld -shared -Bsymbolic-functions -Bno-symbolic %t/a.o %t/b.o -o %t.so
 # RUN: cmp %t.so %t0.so
 
 # REL_DEF:      .rela.dyn {

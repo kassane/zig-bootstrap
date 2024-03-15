@@ -235,9 +235,7 @@ set(ZIG_STAGE2_SOURCES
     "${CMAKE_SOURCE_DIR}/lib/std/elf.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/fifo.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/fmt.zig"
-    "${CMAKE_SOURCE_DIR}/lib/std/fmt/errol.zig"
-    "${CMAKE_SOURCE_DIR}/lib/std/fmt/errol/enum3.zig"
-    "${CMAKE_SOURCE_DIR}/lib/std/fmt/errol/lookup.zig"
+    "${CMAKE_SOURCE_DIR}/lib/std/fmt/ryu128.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/fmt/parse_float.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/fs.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/fs/AtomicFile.zig"
@@ -291,7 +289,8 @@ set(ZIG_STAGE2_SOURCES
     "${CMAKE_SOURCE_DIR}/lib/std/os/linux/errno/generic.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/os/linux/x86_64.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/os/linux.zig"
-    "${CMAKE_SOURCE_DIR}/lib/std/os/linux/io_uring.zig"
+    "${CMAKE_SOURCE_DIR}/lib/std/os/linux/IoUring.zig"
+    "${CMAKE_SOURCE_DIR}/lib/std/os/linux/io_uring_sqe.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/os/linux/x86_64.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/os/windows.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/os/windows/ntstatus.zig"
@@ -597,6 +596,7 @@ set(ZIG_STAGE2_SOURCES
     "${CMAKE_SOURCE_DIR}/src/link/Elf/relocatable.zig"
     "${CMAKE_SOURCE_DIR}/src/link/Elf/relocation.zig"
     "${CMAKE_SOURCE_DIR}/src/link/Elf/synthetic_sections.zig"
+    "${CMAKE_SOURCE_DIR}/src/link/Elf/thunks.zig"
     "${CMAKE_SOURCE_DIR}/src/link/MachO.zig"
     "${CMAKE_SOURCE_DIR}/src/link/MachO/Archive.zig"
     "${CMAKE_SOURCE_DIR}/src/link/MachO/Atom.zig"
@@ -905,8 +905,6 @@ else()
 endif()
 
 # -Dno-langref is currently hardcoded because building the langref takes too damn long
-# -Dno-autodocs is currently hardcoded because the C backend generates a miscompilation
-#   that prevents it from working.
 # To obtain these two forms of documentation, run zig build against stage3 rather than stage2.
 set(ZIG_BUILD_ARGS
   --zig-lib-dir "${CMAKE_SOURCE_DIR}/lib"
@@ -916,7 +914,6 @@ set(ZIG_BUILD_ARGS
   ${ZIG_STATIC_ARG}
   ${ZIG_NO_LIB_ARG}
   "-Dno-langref"
-  "-Dno-autodocs"
   ${ZIG_SINGLE_THREADED_ARG}
   ${ZIG_PIE_ARG}
   "-Dtarget=${ZIG_TARGET_TRIPLE}"

@@ -52,7 +52,7 @@ enum ELFKind : uint8_t {
   ELF64BEKind
 };
 
-// For -Bno-symbolic, -Bsymbolic-non-weak-functions, -shared,
+// For -Bno-symbolic, -Bsymbolic-non-weak-functions, -Bsymbolic-functions,
 // -Bsymbolic.
 enum class BsymbolicKind { None, NonWeakFunctions, Functions, All };
 
