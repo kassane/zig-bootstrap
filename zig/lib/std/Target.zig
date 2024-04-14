@@ -1318,7 +1318,8 @@ pub const Cpu = struct {
             for (decls, 0..) |decl, i| {
                 array[i] = &@field(cpus, decl.name);
             }
-            return &array;
+            const finalized = array;
+            return &finalized;
         }
     };
 
@@ -2737,6 +2738,13 @@ pub fn is_libc_lib_name(target: std.Target, name: []const u8) bool {
 
     if (target.os.isAtLeast(.macos, .{ .major = 10, .minor = 8, .patch = 0 }) orelse false) {
         if (eqlIgnoreCase(ignore_case, name, "mx"))
+            return true;
+    }
+
+    if (target.os.tag == .haiku) {
+        if (eqlIgnoreCase(ignore_case, name, "root"))
+            return true;
+        if (eqlIgnoreCase(ignore_case, name, "network"))
             return true;
     }
 

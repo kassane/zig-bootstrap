@@ -1644,7 +1644,6 @@ test "undefined-layout union field pointer has correct alignment" {
 }
 
 test "packed union field pointer has correct alignment" {
-    if (builtin.zig_backend == .stage2_c) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
@@ -1746,7 +1745,10 @@ fn littleToNativeEndian(comptime T: type, v: T) T {
 }
 
 test "reinterpret extern union" {
-    if (builtin.zig_backend == .stage2_spirv64) return error.SkipZigTest;
+    if (true) {
+        // https://github.com/ziglang/zig/issues/19389
+        return error.SkipZigTest;
+    }
 
     const U = extern union {
         foo: u8,

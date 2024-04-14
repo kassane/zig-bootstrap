@@ -51,6 +51,7 @@ pub const gnu_f16_abi = switch (builtin.cpu.arch) {
     .wasm64,
     .riscv64,
     .riscv32,
+    .xtensa,
     => false,
 
     .x86, .x86_64 => true,

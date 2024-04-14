@@ -2780,10 +2780,16 @@ fn noop4() align(4) void {}
 
 test "function alignment" {
     try expect(derp() == 1234);
-    try expect(@TypeOf(noop1) == fn () align(1) void);
-    try expect(@TypeOf(noop4) == fn () align(4) void);
+    try expect(@TypeOf(derp) == fn () i32);
+    try expect(@TypeOf(&derp) == *align(@sizeOf(usize) * 2) const fn () i32);
+
     noop1();
+    try expect(@TypeOf(noop1) == fn () void);
+    try expect(@TypeOf(&noop1) == *align(1) const fn () void);
+
     noop4();
+    try expect(@TypeOf(noop4) == fn () void);
+    try expect(@TypeOf(&noop4) == *align(4) const fn () void);
 }
       {#code_end#}
       <p>
@@ -3101,7 +3107,7 @@ test "struct namespaced variable" {
 // struct field order is determined by the compiler for optimal performance.
 // however, you can still calculate a struct base pointer given a field pointer:
 fn setYBasedOnX(x: *f32, y: f32) void {
-    const point = @fieldParentPtr(Point, "x", x);
+    const point: *Point = @fieldParentPtr("x", x);
     point.y = y;
 }
 test "field parent pointer" {
@@ -3167,24 +3173,81 @@ test "linked list" {
 
       {#header_open|Default Field Values#}
       <p>
-      Each struct field may have an expression indicating the default field value. Such expressions
-      are executed at {#link|comptime#}, and allow the field to be omitted in a struct literal expression:
+      Each struct field may have an expression indicating the default field
+      value. Such expressions are executed at {#link|comptime#}, and allow the
+      field to be omitted in a struct literal expression:
       </p>
-      {#code_begin|test|test_struct_default_field_values#}
+      {#code_begin|test|struct_default_field_values#}
 const Foo = struct {
     a: i32 = 1234,
     b: i32,
 };
 
 test "default struct initialization fields" {
-    const x = Foo{
+    const x: Foo = .{
         .b = 5,
     };
     if (x.a + x.b != 1239) {
-        @compileError("it's even comptime-known!");
+        comptime unreachable;
     }
 }
       {#code_end#}
+      <p>
+      Default field values are only appropriate when the data invariants of a struct
+      cannot be violated by omitting that field from an initialization.
+      </p>
+      <p>
+      For example, here is an inappropriate use of default struct field initialization:
+      </p>
+      {#code_begin|exe_err|bad_default_value#}
+const Threshold = struct {
+    minimum: f32 = 0.25,
+    maximum: f32 = 0.75,
+
+    const Category = enum { low, medium, high };
+
+    fn categorize(t: Threshold, value: f32) Category {
+        assert(t.maximum >= t.minimum);
+        if (value < t.minimum) return .low;
+        if (value > t.maximum) return .high;
+        return .medium;
+    }
+};
+
+pub fn main() !void {
+    var threshold: Threshold = .{
+        .maximum = 0.20,
+    };
+    const category = threshold.categorize(0.90);
+    try std.io.getStdOut().writeAll(@tagName(category));
+}
+
+const std = @import("std");
+const assert = std.debug.assert;
+      {#code_end#}
+      <p>
+      Above you can see the danger of ignoring this principle. The default
+      field values caused the data invariant to be violated, causing illegal
+      behavior.
+      </p>
+      <p>
+      To fix this, remove the default values from all the struct fields, and provide
+      a named default value:
+      </p>
+      {#code_begin|syntax|struct_default_value#}
+const Threshold = struct {
+    minimum: f32,
+    maximum: f32,
+
+    const default: Threshold = .{
+        .minimum = 0.25,
+        .maximum = 0.75,
+    };
+};
+      {#code_end#}
+      <p>If a struct value requires a runtime-known value in order to be initialized
+      without violating data invariants, then use an initialization method that accepts
+      those runtime values, and populates the remaining fields.</p>
       {#header_close#}
 
       {#header_open|extern struct#}
@@ -3257,6 +3320,16 @@ fn doTheTest() !void {
             try expect(ordered[1] == 0x12);
         },
     }
+}
+      {#code_end#}
+      <p>
+      The backing integer is inferred from the fields' total bit width.
+      Optionally, it can be explicitly provided and enforced at compile time:
+      </p>
+      {#code_begin|test_err|test_missized_packed_struct|backing integer type 'u32' has bit size 32 but the struct fields have a total bit size of 24#}
+test "missized packed struct" {
+    const S = packed struct(u32) { a: u16, b: u8 };
+    _ = S{ .a = 4, .b = 2 };
 }
       {#code_end#}
       <p>
@@ -5514,7 +5587,7 @@ fn doAThing(str: []u8) void {
       errors in the {#syntax#}else{#endsyntax#} case, which now contains a narrower error set:
       </p>
       {#syntax_block|zig|handle_some_error_scenarios.zig#}
- fn doAnotherThing(str: []u8) error{InvaidChar}!void {
+ fn doAnotherThing(str: []u8) error{InvalidChar}!void {
     if (parseU64(str, 10)) |number| {
         doSomethingWithNumber(number);
     } else |err| switch (err) {
@@ -7951,10 +8024,16 @@ test "global assembly" {
       {#header_close#}
 
       {#header_open|Async Functions#}
-      <p>Async functions are being temporarily regressed and will be
-      <a href="https://github.com/ziglang/zig/issues/6025">restored before Zig
-        0.11.0 is tagged</a>. I apologize for the instability. Please use Zig 0.10.0 with
-      the <code>-fstage1</code> flag for now if you need this feature.</p>
+      <p>Async functions regressed with the release of 0.11.0. Their future in
+      the Zig language is unclear due to multiple unsolved problems:</p>
+      <ul>
+        <li>LLVM's lack of ability to optimize them.</li>
+        <li>Third-party debuggers' lack of ability to debug them.</li>
+        <li><a href="https://github.com/ziglang/zig/issues/5913">The cancellation problem</a>.</li>
+        <li>Async function pointers preventing the stack size from being known.</li>
+      </ul>
+      <p>These problems are surmountable, but it will take time. The Zig team
+      is currently focused on other priorities.</p>
       {#header_close#}
 
       {#header_open|Builtin Functions|2col#}
@@ -8694,8 +8773,7 @@ test "decl access by string" {
       {#header_close#}
 
       {#header_open|@fieldParentPtr#}
-      <pre>{#syntax#}@fieldParentPtr(comptime ParentType: type, comptime field_name: []const u8,
-    field_ptr: *T) *ParentType{#endsyntax#}</pre>
+      <pre>{#syntax#}@fieldParentPtr(comptime field_name: []const u8, field_ptr: *T) anytype{#endsyntax#}</pre>
       <p>
       Given a pointer to a field, returns the base pointer of a struct.
       </p>
@@ -11408,7 +11486,7 @@ pub fn main() !void {
 1: 123
 2: hello{#end_shell_samp#}
       <p>A more interesting example would be extracting the list of preopens from the runtime.
-      This is now supported in the standard library via {#syntax#}std.fs.wasi.PreopenList{#endsyntax#}:</p>
+      This is now supported in the standard library via {#syntax#}std.fs.wasi.Preopens{#endsyntax#}:</p>
       {#code_begin|exe|wasi_preopens#}
       {#target_wasi#}
 const std = @import("std");
@@ -11473,6 +11551,51 @@ this documentation along with the compiler in order to provide a point of
 reference, should anyone wish to point to an authority on agreed upon Zig
 coding style.
       </p>
+      {#header_open|Avoid Redundancy in Names#}
+      <p>Avoid these words in type names:</p>
+      <ul>
+        <li>Value</li>
+        <li>Data</li>
+        <li>Context</li>
+        <li>Manager</li>
+        <li>utils, misc, or somebody's initials</li>
+      </ul>
+      <p>Everything is a value, all types are data, everything is context, all logic manages state.
+      Nothing is communicated by using a word that applies to all types.</p> 
+      <p>Temptation to use "utilities", "miscellaneous", or somebody's initials
+      is a failure to categorize, or more commonly, overcategorization. Such
+      declarations can live at the root of a module that needs them with no
+      namespace needed.</p>
+      {#header_close#}
+
+      {#header_open|Avoid Redundant Names in Fully-Qualified Namespaces#}
+      <p>Every declaration is assigned a <strong>fully qualified
+      namespace</strong> by the compiler, creating a tree structure. Choose names based
+      on the fully-qualified namespace, and avoid redundant name segments.</p>
+      {#code_begin|exe|redundant_fqn#}
+const std = @import("std");
+
+pub const json = struct {
+    pub const JsonValue = union(enum) {
+        number: f64,
+        boolean: bool,
+        // ...
+    };
+};
+
+pub fn main() void {
+    std.debug.print("{s}\n", .{@typeName(json.JsonValue)});
+}
+      {#code_end#}
+      <p>In this example, "json" is repeated in the fully-qualified namespace. The solution
+      is to delete <code>Json</code> from <code>JsonValue</code>. In this example we have
+      an empty struct named <code>json</code> but remember that files also act
+      as part of the fully-qualified namespace.</p>
+      <p>This example is an exception to the rule specified in {#link|Avoid Redundancy in Names#}.
+      The meaning of the type has been reduced to its core: it is a json value. The name
+      cannot be any more specific without being incorrect.</p>
+      {#header_close#}
+
       {#header_open|Whitespace#}
       <ul>
         <li>
@@ -12639,7 +12762,7 @@ mb_utf8_literal <-
      / oxE0      oxA0_oxBF ox80_oxBF
      / oxC2_oxDF ox80_oxBF
 
-ascii_char_not_nl_slash_squote <- [\000-\011\013-\046-\050-\133\135-\177]
+ascii_char_not_nl_slash_squote <- [\000-\011\013-\046\050-\133\135-\177]
 
 char_escape
     <- "\\x" hex hex

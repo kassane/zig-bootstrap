@@ -328,7 +328,6 @@ pub const cpu = struct {
             .coprocessor,
             .debug,
             .density,
-            .dfpaccel,
             .div32,
             .esp32s3,
             .exception,

@@ -101,6 +101,7 @@ pub fn getExternalExecutor(
             .sparc => Executor{ .qemu = "qemu-sparc" },
             .sparc64 => Executor{ .qemu = "qemu-sparc64" },
             .x86_64 => Executor{ .qemu = "qemu-x86_64" },
+            .xtensa => Executor{ .qemu = "qemu-xtensa" },
             else => return bad_result,
         };
     }
@@ -168,7 +169,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     if (query.os_tag == null) {
         switch (builtin.target.os.tag) {
             .linux => {
-                const uts = std.os.uname();
+                const uts = posix.uname();
                 const release = mem.sliceTo(&uts.release, 0);
                 // The release field sometimes has a weird format,
                 // `Version.parse` will attempt to find some meaningful interpretation.
@@ -181,7 +182,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
                 }
             },
             .solaris, .illumos => {
-                const uts = std.os.uname();
+                const uts = posix.uname();
                 const release = mem.sliceTo(&uts.release, 0);
                 if (std.SemanticVersion.parse(release)) |ver| {
                     os.version_range.semver.min = ver;
@@ -206,7 +207,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
                 var value: u32 = undefined;
                 var len: usize = @sizeOf(@TypeOf(value));
 
-                std.os.sysctlbynameZ(key, &value, &len, null, 0) catch |err| switch (err) {
+                posix.sysctlbynameZ(key, &value, &len, null, 0) catch |err| switch (err) {
                     error.NameTooLong => unreachable, // constant, known good value
                     error.PermissionDenied => unreachable, // only when setting values,
                     error.SystemResources => unreachable, // memory already on the stack
@@ -257,15 +258,15 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
             },
             .openbsd => {
                 const mib: [2]c_int = [_]c_int{
-                    std.os.CTL.KERN,
-                    std.os.KERN.OSRELEASE,
+                    posix.CTL.KERN,
+                    posix.KERN.OSRELEASE,
                 };
                 var buf: [64]u8 = undefined;
                 // consider that sysctl result includes null-termination
                 // reserve 1 byte to ensure we never overflow when appending ".0"
                 var len: usize = buf.len - 1;
 
-                std.os.sysctl(&mib, &buf, &len, null, 0) catch |err| switch (err) {
+                posix.sysctl(&mib, &buf, &len, null, 0) catch |err| switch (err) {
                     error.NameTooLong => unreachable, // constant, known good value
                     error.PermissionDenied => unreachable, // only when setting values,
                     error.SystemResources => unreachable, // memory already on the stack
@@ -636,8 +637,8 @@ pub fn abiAndDynamicLinkerFromFile(
 
             // So far, no luck. Next we try to see if the information is
             // present in the symlink data for the dynamic linker path.
-            var link_buf: [std.os.PATH_MAX]u8 = undefined;
-            const link_name = std.os.readlink(dl_path, &link_buf) catch |err| switch (err) {
+            var link_buf: [posix.PATH_MAX]u8 = undefined;
+            const link_name = posix.readlink(dl_path, &link_buf) catch |err| switch (err) {
                 error.NameTooLong => unreachable,
                 error.InvalidUtf8 => unreachable, // WASI only
                 error.InvalidWtf8 => unreachable, // Windows only
@@ -670,7 +671,7 @@ pub fn abiAndDynamicLinkerFromFile(
 
         // Nothing worked so far. Finally we fall back to hard-coded search paths.
         // Some distros such as Debian keep their libc.so.6 in `/lib/$triple/`.
-        var path_buf: [std.os.PATH_MAX]u8 = undefined;
+        var path_buf: [posix.PATH_MAX]u8 = undefined;
         var index: usize = 0;
         const prefix = "/lib/";
         const cpu_arch = @tagName(result.cpu.arch);
@@ -988,9 +989,13 @@ fn detectAbiAndDynamicLinker(
         // if it finds one, then instead of using /usr/bin/env as the ELF file to examine, it uses the file it references instead,
         // doing the same logic recursively in case it finds another shebang line.
 
-        // Since /usr/bin/env is hard-coded into the shebang line of many portable scripts, it's a
-        // reasonably reliable path to start with.
-        var file_name: []const u8 = "/usr/bin/env";
+        var file_name: []const u8 = switch (os.tag) {
+            // Since /usr/bin/env is hard-coded into the shebang line of many portable scripts, it's a
+            // reasonably reliable path to start with.
+            else => "/usr/bin/env",
+            // Haiku does not have a /usr root directory.
+            .haiku => "/bin/env",
+        };
         // #! (2) + 255 (max length of shebang line since Linux 5.1) + \n (1)
         var buffer: [258]u8 = undefined;
         while (true) {
@@ -1017,7 +1022,7 @@ fn detectAbiAndDynamicLinker(
                 error.FileTooBig,
                 error.Unexpected,
                 => |e| {
-                    std.log.warn("Encountered error: {s}, falling back to default ABI and dynamic linker.\n", .{@errorName(e)});
+                    std.log.warn("Encountered error: {s}, falling back to default ABI and dynamic linker.", .{@errorName(e)});
                     return defaultAbiAndDynamicLinker(cpu, os, query);
                 },
 
@@ -1065,7 +1070,7 @@ fn detectAbiAndDynamicLinker(
         error.NameTooLong,
         // Finally, we fall back on the standard path.
         => |e| {
-            std.log.warn("Encountered error: {s}, falling back to default ABI and dynamic linker.\n", .{@errorName(e)});
+            std.log.warn("Encountered error: {s}, falling back to default ABI and dynamic linker.", .{@errorName(e)});
             return defaultAbiAndDynamicLinker(cpu, os, query);
         },
     };
@@ -1138,6 +1143,7 @@ const fs = std.fs;
 const assert = std.debug.assert;
 const Target = std.Target;
 const native_endian = builtin.cpu.arch.endian();
+const posix = std.posix;
 
 test {
     _ = NativePaths;

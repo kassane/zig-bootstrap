@@ -102,7 +102,6 @@ link_errors: std.ArrayListUnmanaged(link.File.ErrorMsg) = .{},
 lld_errors: std.ArrayListUnmanaged(LldError) = .{},
 
 work_queue: std.fifo.LinearFifo(Job, .Dynamic),
-anon_work_queue: std.fifo.LinearFifo(Job, .Dynamic),
 
 /// These jobs are to invoke the Clang compiler to create an object file, which
 /// gets linked with the Compilation.
@@ -174,6 +173,7 @@ global_cache_directory: Directory,
 libc_include_dir_list: []const []const u8,
 libc_framework_dir_list: []const []const u8,
 rc_includes: RcIncludes,
+mingw_unicode_entry_point: bool,
 thread_pool: *ThreadPool,
 
 /// Populated when we build the libc++ static library. A Job to build this is placed in the queue
@@ -759,7 +759,7 @@ pub const MiscTask = enum {
 
     @"mingw-w64 crt2.o",
     @"mingw-w64 dllcrt2.o",
-    @"mingw-w64 mingwex.lib",
+    @"mingw-w64 mingw32.lib",
 };
 
 pub const MiscError = struct {
@@ -1102,6 +1102,7 @@ pub const CreateOptions = struct {
     test_name_prefix: ?[]const u8 = null,
     test_runner_path: ?[]const u8 = null,
     subsystem: ?std.Target.SubSystem = null,
+    mingw_unicode_entry_point: bool = false,
     /// (Zig compiler development) Enable dumping linker's state as JSON.
     enable_link_snapshots: bool = false,
     /// (Darwin) Install name of the dylib
@@ -1137,7 +1138,7 @@ fn addModuleTableToCacheHash(
     root_mod: *Package.Module,
     main_mod: *Package.Module,
     hash_type: union(enum) { path_bytes, files: *Cache.Manifest },
-) (error{OutOfMemory} || std.os.GetCwdError)!void {
+) (error{OutOfMemory} || std.process.GetCwdError)!void {
     var seen_table: std.AutoArrayHashMapUnmanaged(*Package.Module, void) = .{};
     defer seen_table.deinit(gpa);
 
@@ -1382,7 +1383,6 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
                 .global_zir_cache = global_zir_cache,
                 .local_zir_cache = local_zir_cache,
                 .emit_h = emit_h,
-                .tmp_hack_arena = std.heap.ArenaAllocator.init(gpa),
                 .error_limit = error_limit,
                 .llvm_object = null,
             };
@@ -1418,7 +1418,6 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
             .emit_llvm_ir = options.emit_llvm_ir,
             .emit_llvm_bc = options.emit_llvm_bc,
             .work_queue = std.fifo.LinearFifo(Job, .Dynamic).init(gpa),
-            .anon_work_queue = std.fifo.LinearFifo(Job, .Dynamic).init(gpa),
             .c_object_work_queue = std.fifo.LinearFifo(*CObject, .Dynamic).init(gpa),
             .win32_resource_work_queue = if (build_options.only_core_functionality) {} else std.fifo.LinearFifo(*Win32Resource, .Dynamic).init(gpa),
             .astgen_work_queue = std.fifo.LinearFifo(*Module.File, .Dynamic).init(gpa),
@@ -1430,6 +1429,7 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
             .libc_include_dir_list = libc_dirs.libc_include_dir_list,
             .libc_framework_dir_list = libc_dirs.libc_framework_dir_list,
             .rc_includes = options.rc_includes,
+            .mingw_unicode_entry_point = options.mingw_unicode_entry_point,
             .thread_pool = options.thread_pool,
             .clang_passthrough_mode = options.clang_passthrough_mode,
             .clang_preprocessor_mode = options.clang_preprocessor_mode,
@@ -1771,7 +1771,7 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
 
             const crt_job: Job = .{ .mingw_crt_file = if (is_dyn_lib) .dllcrt2_o else .crt2_o };
             try comp.work_queue.ensureUnusedCapacity(2);
-            comp.work_queue.writeItemAssumeCapacity(.{ .mingw_crt_file = .mingwex_lib });
+            comp.work_queue.writeItemAssumeCapacity(.{ .mingw_crt_file = .mingw32_lib });
             comp.work_queue.writeItemAssumeCapacity(crt_job);
 
             // When linking mingw-w64 there are some import libs we always need.
@@ -1841,7 +1841,6 @@ pub fn destroy(comp: *Compilation) void {
     if (comp.module) |zcu| zcu.deinit();
     comp.cache_use.deinit();
     comp.work_queue.deinit();
-    comp.anon_work_queue.deinit();
     comp.c_object_work_queue.deinit();
     if (!build_options.only_core_functionality) {
         comp.win32_resource_work_queue.deinit();
@@ -1999,7 +1998,7 @@ pub fn update(comp: *Compilation, main_progress_node: *std.Progress.Node) !void 
 
             const is_hit = man.hit() catch |err| {
                 const i = man.failed_file_index orelse return err;
-                const pp = man.files.items[i].prefixed_path orelse return err;
+                const pp = man.files.keys()[i].prefixed_path;
                 const prefix = man.cache.prefixes()[pp.prefix];
                 return comp.setMiscFailure(
                     .check_whole_cache,
@@ -2741,7 +2740,7 @@ const Header = extern struct {
 /// saved, such as the target and most CLI flags. A cache hit will only occur
 /// when subsequent compiler invocations use the same set of flags.
 pub fn saveState(comp: *Compilation) !void {
-    var bufs_list: [19]std.os.iovec_const = undefined;
+    var bufs_list: [19]std.posix.iovec_const = undefined;
     var bufs_len: usize = 0;
 
     const lf = comp.bin_file orelse return;
@@ -2808,7 +2807,7 @@ pub fn saveState(comp: *Compilation) !void {
     try af.finish();
 }
 
-fn addBuf(bufs_list: []std.os.iovec_const, bufs_len: *usize, buf: []const u8) void {
+fn addBuf(bufs_list: []std.posix.iovec_const, bufs_len: *usize, buf: []const u8) void {
     const i = bufs_len.*;
     bufs_len.* = i + 1;
     bufs_list[i] = .{
@@ -3160,7 +3159,7 @@ pub fn addModuleErrorMsg(mod: *Module, eb: *ErrorBundle.Wip, module_err_msg: Mod
         const rt_file_path = try module_reference.src_loc.file_scope.fullPath(gpa);
         defer gpa.free(rt_file_path);
         ref_traces.appendAssumeCapacity(.{
-            .decl_name = try eb.addString(ip.stringToSlice(module_reference.decl)),
+            .decl_name = try eb.addString(module_reference.decl.toSlice(ip)),
             .src_loc = try eb.addSourceLocation(.{
                 .src_path = try eb.addString(rt_file_path),
                 .span_start = span.start,
@@ -3355,15 +3354,8 @@ pub fn performAllTheWork(
         mod.sema_prog_node = undefined;
     };
 
-    // In this main loop we give priority to non-anonymous Decls in the work queue, so
-    // that they can establish references to anonymous Decls, setting alive=true in the
-    // backend, preventing anonymous Decls from being prematurely destroyed.
     while (true) {
         if (comp.work_queue.readItem()) |work_item| {
-            try processOneJob(comp, work_item, main_progress_node);
-            continue;
-        }
-        if (comp.anon_work_queue.readItem()) |work_item| {
             try processOneJob(comp, work_item, main_progress_node);
             continue;
         }
@@ -3414,14 +3406,7 @@ fn processOneJob(comp: *Compilation, job: Job, prog_node: *std.Progress.Node) !v
 
                     assert(decl.has_tv);
 
-                    if (decl.alive) {
-                        try module.linkerUpdateDecl(decl_index);
-                        return;
-                    }
-
-                    // Instead of sending this decl to the linker, we actually will delete it
-                    // because we found out that it in fact was never referenced.
-                    module.deleteUnusedDecl(decl_index);
+                    try module.linkerUpdateDecl(decl_index);
                     return;
                 },
             }
@@ -3466,19 +3451,24 @@ fn processOneJob(comp: *Compilation, job: Job, prog_node: *std.Progress.Node) !v
 
                     var dg: c_codegen.DeclGen = .{
                         .gpa = gpa,
-                        .module = module,
+                        .zcu = module,
+                        .mod = module.namespacePtr(decl.src_namespace).file_scope.mod,
                         .error_msg = null,
                         .pass = .{ .decl = decl_index },
                         .is_naked_fn = false,
                         .fwd_decl = fwd_decl.toManaged(gpa),
-                        .ctypes = .{},
+                        .ctype_pool = c_codegen.CType.Pool.empty,
+                        .scratch = .{},
                         .anon_decl_deps = .{},
                         .aligned_anon_decls = .{},
                     };
                     defer {
-                        dg.ctypes.deinit(gpa);
-                        dg.fwd_decl.deinit();
+                        fwd_decl.* = dg.fwd_decl.moveToUnmanaged();
+                        fwd_decl.shrinkAndFree(gpa, fwd_decl.items.len);
+                        dg.ctype_pool.deinit(gpa);
+                        dg.scratch.deinit(gpa);
                     }
+                    try dg.ctype_pool.init(gpa);
 
                     c_codegen.genHeader(&dg) catch |err| switch (err) {
                         error.AnalysisFail => {
@@ -3487,9 +3477,6 @@ fn processOneJob(comp: *Compilation, job: Job, prog_node: *std.Progress.Node) !v
                         },
                         else => |e| return e,
                     };
-
-                    fwd_decl.* = dg.fwd_decl.moveToUnmanaged();
-                    fwd_decl.shrinkAndFree(gpa, fwd_decl.items.len);
                 },
             }
         },
@@ -3711,6 +3698,9 @@ fn workerDocsCopy(comp: *Compilation, wg: *WaitGroup) void {
 }
 
 fn docsCopyFallible(comp: *Compilation) anyerror!void {
+    const zcu = comp.module orelse
+        return comp.lockAndSetMiscFailure(.docs_copy, "no Zig code to document", .{});
+
     const emit = comp.docs_emit.?;
     var out_dir = emit.directory.handle.makeOpenPath(emit.sub_path, .{}) catch |err| {
         return comp.lockAndSetMiscFailure(
@@ -3741,7 +3731,25 @@ fn docsCopyFallible(comp: *Compilation) anyerror!void {
     };
     defer tar_file.close();
 
-    const root = comp.root_mod.root;
+    var seen_table: std.AutoArrayHashMapUnmanaged(*Package.Module, []const u8) = .{};
+    defer seen_table.deinit(comp.gpa);
+
+    try seen_table.put(comp.gpa, zcu.main_mod, comp.root_name);
+    try seen_table.put(comp.gpa, zcu.std_mod, zcu.std_mod.fully_qualified_name);
+
+    var i: usize = 0;
+    while (i < seen_table.count()) : (i += 1) {
+        const mod = seen_table.keys()[i];
+        try comp.docsCopyModule(mod, seen_table.values()[i], tar_file);
+
+        const deps = mod.deps.values();
+        try seen_table.ensureUnusedCapacity(comp.gpa, deps.len);
+        for (deps) |dep| seen_table.putAssumeCapacity(dep, dep.fully_qualified_name);
+    }
+}
+
+fn docsCopyModule(comp: *Compilation, module: *Package.Module, name: []const u8, tar_file: std.fs.File) !void {
+    const root = module.root;
     const sub_path = if (root.sub_path.len == 0) "." else root.sub_path;
     var mod_dir = root.root_dir.handle.openDir(sub_path, .{ .iterate = true }) catch |err| {
         return comp.lockAndSetMiscFailure(.docs_copy, "unable to open directory '{}': {s}", .{
@@ -3780,7 +3788,7 @@ fn docsCopyFallible(comp: *Compilation) anyerror!void {
 
         var file_header = std.tar.output.Header.init();
         file_header.typeflag = .regular;
-        try file_header.setPath(comp.root_name, entry.path);
+        try file_header.setPath(name, entry.path);
         try file_header.setSize(stat.size);
         try file_header.updateChecksum();
 
@@ -3791,7 +3799,7 @@ fn docsCopyFallible(comp: *Compilation) anyerror!void {
             break :p padding_buffer[0..n];
         };
 
-        var header_and_trailer: [2]std.os.iovec_const = .{
+        var header_and_trailer: [2]std.posix.iovec_const = .{
             .{ .iov_base = header_bytes.ptr, .iov_len = header_bytes.len },
             .{ .iov_base = padding.ptr, .iov_len = padding.len },
         };
@@ -4066,8 +4074,7 @@ fn workerCheckEmbedFile(
 fn detectEmbedFileUpdate(comp: *Compilation, embed_file: *Module.EmbedFile) !void {
     const mod = comp.module.?;
     const ip = &mod.intern_pool;
-    const sub_file_path = ip.stringToSlice(embed_file.sub_file_path);
-    var file = try embed_file.owner.root.openFile(sub_file_path, .{});
+    var file = try embed_file.owner.root.openFile(embed_file.sub_file_path.toSlice(ip), .{});
     defer file.close();
 
     const stat = try file.stat();
@@ -4147,7 +4154,7 @@ pub fn cImport(comp: *Compilation, c_src: []const u8, owner_mod: *Package.Module
     const prev_hash_state = man.hash.peekBin();
     const actual_hit = hit: {
         _ = try man.hit();
-        if (man.files.items.len == 0) {
+        if (man.files.entries.len == 0) {
             man.unhit(prev_hash_state, 0);
             break :hit false;
         }
@@ -4436,7 +4443,7 @@ fn reportRetryableEmbedFileError(
     const ip = &mod.intern_pool;
     const err_msg = try Module.ErrorMsg.create(gpa, src_loc, "unable to load '{}{s}': {s}", .{
         embed_file.owner.root,
-        ip.stringToSlice(embed_file.sub_file_path),
+        embed_file.sub_file_path.toSlice(ip),
         @errorName(err),
     });
 
@@ -5205,21 +5212,20 @@ pub fn addCCArgs(
         } else if (target.isMinGW()) {
             try argv.append("-D__MSVCRT_VERSION__=0xE00"); // use ucrt
 
+            switch (ext) {
+                .c, .cpp, .m, .mm, .h, .hpp, .hm, .hmm, .cu, .rc, .assembly, .assembly_with_cpp => {
+                    const minver: u16 = @truncate(@intFromEnum(target.os.getVersionRange().windows.min) >> 16);
+                    try argv.append(
+                        try std.fmt.allocPrint(arena, "-D_WIN32_WINNT=0x{x:0>4}", .{minver}),
+                    );
+                },
+                else => {},
+            }
         }
     }
 
     const llvm_triple = try @import("codegen/llvm.zig").targetTriple(arena, target);
     try argv.appendSlice(&[_][]const u8{ "-target", llvm_triple });
-
-    if (target.os.tag == .windows) switch (ext) {
-        .c, .cpp, .m, .mm, .h, .hpp, .hm, .hmm, .cu, .rc, .assembly, .assembly_with_cpp => {
-            const minver: u16 = @truncate(@intFromEnum(target.os.getVersionRange().windows.min) >> 16);
-            try argv.append(
-                try std.fmt.allocPrint(arena, "-D_WIN32_WINNT=0x{x:0>4}", .{minver}),
-            );
-        },
-        else => {},
-    };
 
     switch (ext) {
         .c, .cpp, .m, .mm, .h, .hpp, .hm, .hmm, .cu, .rc => {

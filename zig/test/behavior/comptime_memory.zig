@@ -400,6 +400,10 @@ test "accessing reinterpreted memory of parent object" {
 }
 
 test "bitcast packed union to integer" {
+    if (true) {
+        // https://github.com/ziglang/zig/issues/19384
+        return error.SkipZigTest;
+    }
     const U = packed union {
         x: u1,
         y: u2,
@@ -457,7 +461,7 @@ test "write empty array to end" {
     array[5..5].* = .{};
     array[5..5].* = [0]u8{};
     array[5..5].* = [_]u8{};
-    try testing.expectEqualStrings("hello", &array);
+    comptime std.debug.assert(std.mem.eql(u8, "hello", &array));
 }
 
 fn doublePtrTest() !void {
