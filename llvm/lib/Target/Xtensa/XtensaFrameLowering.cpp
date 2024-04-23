@@ -399,7 +399,7 @@ void XtensaFrameLowering::processFunctionBeforeFrameFinalized(
     const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
     unsigned Size = TRI.getSpillSize(RC);
     Align Alignment = TRI.getSpillAlign(RC);
-    for (int i = 0; i < NeedRegs; i++)
+    for (int i = 0; i <= NeedRegs; i++)
       RS->addScavengingFrameIndex(
           MFI.CreateStackObject(Size, Alignment, false));
   }
