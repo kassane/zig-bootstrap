@@ -43,10 +43,6 @@ public:
   bool trackLivenessAfterRegAlloc(const MachineFunction &) const override {
     return true;
   }
-  
-  bool supportsBackwardScavenger() const override {
-    return true;
-  }
 
   const uint16_t *
   getCalleeSavedRegs(const MachineFunction *MF = 0) const override;

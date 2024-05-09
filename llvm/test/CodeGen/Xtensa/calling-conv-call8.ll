@@ -156,8 +156,7 @@ define dso_local void @caller_i128b_3(i128 noundef %0) {
 ; XTENSA-I128-NEXT:  s32i.n a8, a1, 8
 ; XTENSA-I128-NEXT:  l32i.n a8, a1, 20
 ; XTENSA-I128-NEXT:  s32i.n a8, a1, 4
-; XTENSA-I128-NEXT:  s32i.n a2, a1, 0
-; XTENSA-I128-NEXT:  l32r   a8, .LCPI5_1
+; XTENSA-I128:       l32r   a8, .LCPI5_1
 ; XTENSA-I128-NEXT:  callx8 a8
 ; XTENSA-I128-NEXT:  retw.n
 

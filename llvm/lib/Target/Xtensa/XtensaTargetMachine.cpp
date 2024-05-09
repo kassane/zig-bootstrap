@@ -64,7 +64,7 @@ XtensaTargetMachine::XtensaTargetMachine(const Target &T, const Triple &TT,
                                          const TargetOptions &Options,
                                          std::optional<Reloc::Model> RM,
                                          std::optional<CodeModel::Model> CM,
-                                         CodeGenOpt::Level OL, bool JIT,
+                                         CodeGenOptLevel OL, bool JIT,
                                          bool IsLittle)
     : LLVMTargetMachine(T, computeDataLayout(TT, CPU, Options, IsLittle), TT,
                         CPU, FS, Options, getEffectiveRelocModel(JIT, RM),
@@ -79,7 +79,7 @@ XtensaTargetMachine::XtensaTargetMachine(const Target &T, const Triple &TT,
                                          const TargetOptions &Options,
                                          std::optional<Reloc::Model> RM,
                                          std::optional<CodeModel::Model> CM,
-                                         CodeGenOpt::Level OL, bool JIT)
+                                         CodeGenOptLevel OL, bool JIT)
     : XtensaTargetMachine(T, TT, getCPUName(CPU), FS, Options, RM, CM, OL, JIT, true) {}
 
 const XtensaSubtarget *
@@ -118,7 +118,7 @@ public:
 } // end anonymous namespace
 
 bool XtensaPassConfig::addPreISel() {
-  if (TM->getOptLevel() != CodeGenOpt::None) {
+  if (TM->getOptLevel() != CodeGenOptLevel::None) {
     addPass(createHardwareLoopsLegacyPass());
   }
 

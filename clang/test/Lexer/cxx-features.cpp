@@ -34,7 +34,16 @@
 
 // --- C++26 features ---
 
+#if check(placeholder_variables, 202306, 202306, 202306, 202306, 202306, 202306, 202306)
+#error "wrong value for __cpp_placeholder_variables"
+#endif
+
 // --- C++23 features ---
+
+#if check(auto_cast, 0, 0, 0, 0, 0, 202110, 202110)
+#error "wrong value for __cpp_auto_cast"
+#endif
+
 
 #if check(implicit_move, 0, 0, 0, 0, 0, 202011, 202011)
 #error "wrong value for __cpp_implicit_move"

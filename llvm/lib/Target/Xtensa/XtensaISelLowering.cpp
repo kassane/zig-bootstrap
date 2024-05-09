@@ -54,6 +54,7 @@ template <typename VT> static bool isVecVT(VT ValVT) {
   }
   return false;
 }
+
 // Return true if we must use long (in fact, indirect) function call.
 // It's simplified version, production implimentation must
 // resolve a functions in ROM (usually glibc functions)
@@ -75,7 +76,6 @@ XtensaTargetLowering::XtensaTargetLowering(const TargetMachine &tm,
                                            const XtensaSubtarget &STI)
     : TargetLowering(tm), Subtarget(STI) {
   MVT PtrVT = MVT::i32;
-
   // Set up the register classes.
   addRegisterClass(MVT::i32, &Xtensa::ARRegClass);
 
@@ -353,11 +353,6 @@ XtensaTargetLowering::XtensaTargetLowering(const TargetMachine &tm,
   setOperationAction(ISD::FP_TO_UINT, MVT::i64, Expand);
   setOperationAction(ISD::FP_TO_SINT, MVT::i64, Expand);
 
-  setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
-  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
-  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
-  setTruncStoreAction(MVT::f32, MVT::f16, Expand);
-
   setOperationAction(ISD::SETCC, MVT::f64, Expand);
   setOperationAction(ISD::BITCAST, MVT::i64, Expand);
   setOperationAction(ISD::BITCAST, MVT::f64, Expand);
@@ -384,22 +379,11 @@ XtensaTargetLowering::XtensaTargetLowering(const TargetMachine &tm,
   // Needed so that we don't try to implement f128 constant loads using
   // a load-and-extend of a f80 constant (in cases where the constant
   // would fit in an f80).
-  for (MVT VT : MVT::fp_valuetypes()) {
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::f16, Expand);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::f32, Expand);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::f64, Expand);
+  for (MVT VT : MVT::fp_valuetypes())
     setLoadExtAction(ISD::EXTLOAD, VT, MVT::f80, Expand);
-  }
-
-  setOperationAction(ISD::FP16_TO_FP, MVT::f64, Expand);
-  setOperationAction(ISD::FP_TO_FP16, MVT::f64, Expand);
-  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
-  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
 
   // Floating-point truncation and stores need to be done separately.
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
-  setTruncStoreAction(MVT::f64, MVT::f16, Expand);
-  setTruncStoreAction(MVT::f32, MVT::f16, Expand);
 
   // Implement custom stack allocations
   setOperationAction(ISD::DYNAMIC_STACKALLOC, PtrVT, Custom);
@@ -442,6 +426,13 @@ XtensaTargetLowering::XtensaTargetLowering(const TargetMachine &tm,
     }
   }
 
+  if (Subtarget.hasS32C1I()) {
+    setMaxAtomicSizeInBitsSupported(32);
+    setMinCmpXchgSizeInBits(32);
+  } else {
+    setMaxAtomicSizeInBitsSupported(0);
+  }
+
   for (MVT VT : MVT::fixedlen_vector_valuetypes()) {
     if (isTypeLegal(VT)) {
       setOperationAction(ISD::CTPOP, VT, Expand);
@@ -469,6 +460,7 @@ XtensaTargetLowering::XtensaTargetLowering(const TargetMachine &tm,
       setLoadExtAction(ISD::EXTLOAD, VT, InnerVT, Expand);
     }
   }
+
   // Compute derived properties from the register classes
   computeRegisterProperties(STI.getRegisterInfo());
 }
@@ -629,12 +621,12 @@ XtensaTargetLowering::getRegForInlineAsmConstraint(
 /// LowerAsmOperandForConstraint - Lower the specified operand into the Ops
 /// vector.  If it is invalid, don't add anything to Ops.
 void XtensaTargetLowering::LowerAsmOperandForConstraint(
-    SDValue Op, std::string &Constraint, std::vector<SDValue> &Ops,
+    SDValue Op, StringRef Constraint, std::vector<SDValue> &Ops,
     SelectionDAG &DAG) const {
   SDLoc DL(Op);
 
   // Only support length 1 constraints for now.
-  if (Constraint.length() > 1)
+  if (Constraint.size() > 1)
     return;
 
   TargetLowering::LowerAsmOperandForConstraint(Op, Constraint, Ops, DAG);
@@ -1054,7 +1046,7 @@ static bool CC_Xtensa_Custom(unsigned ValNo, MVT ValVT, MVT LocVT,
     Reg = State.AllocateReg(BR4Regs);
     LocVT = ValVT;
   } else if (isVecVT(ValVT)) {
-    Reg = State.AllocateReg(VecRegs);
+   Reg = State.AllocateReg(VecRegs);
     LocVT = ValVT;
   } else
     llvm_unreachable("Cannot handle this ValVT.");

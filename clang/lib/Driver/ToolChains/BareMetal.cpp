@@ -100,7 +100,6 @@ static bool findRISCVMultilibs(const Driver &D,
 BareMetal::BareMetal(const Driver &D, const llvm::Triple &Triple,
                      const ArgList &Args, bool detectMultilibs)
     : ToolChain(D, Triple, Args) {
-
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
@@ -317,9 +316,8 @@ void BareMetal::DetectAndAppendGCCVersion(const Driver &D,
 
 void BareMetal::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
                                              ArgStringList &CC1Args) const {
-  if (DriverArgs.hasArg(options::OPT_nostdinc) ||
-      DriverArgs.hasArg(options::OPT_nostdlibinc) ||
-      DriverArgs.hasArg(options::OPT_nostdincxx))
+  if (DriverArgs.hasArg(options::OPT_nostdinc, options::OPT_nostdlibinc,
+                        options::OPT_nostdincxx))
     return;
 
   const Driver &D = getDriver();
@@ -459,9 +457,8 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Arch == llvm::Triple::aarch64_be ? "-EB" : "-EL");
   }
 
-  Args.AddAllArgs(CmdArgs,
-                  {options::OPT_L, options::OPT_T_Group, options::OPT_s,
-                   options::OPT_t, options::OPT_Z_Flag, options::OPT_r});
+  Args.addAllArgs(CmdArgs, {options::OPT_L, options::OPT_T_Group,
+                            options::OPT_s, options::OPT_t, options::OPT_r});
 
   TC.AddFilePathLibArgs(Args, CmdArgs);
 
@@ -498,4 +495,30 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::AtFileCurCP(),
       Args.MakeArgString(TC.GetLinkerPath()), CmdArgs, Inputs, Output));
+}
+
+// BareMetal toolchain allows all sanitizers where the compiler generates valid
+// code, ignoring all runtime library support issues on the assumption that
+// baremetal targets typically implement their own runtime support.
+SanitizerMask BareMetal::getSupportedSanitizers() const {
+  const bool IsX86_64 = getTriple().getArch() == llvm::Triple::x86_64;
+  const bool IsAArch64 = getTriple().getArch() == llvm::Triple::aarch64 ||
+                         getTriple().getArch() == llvm::Triple::aarch64_be;
+  const bool IsRISCV64 = getTriple().getArch() == llvm::Triple::riscv64;
+  SanitizerMask Res = ToolChain::getSupportedSanitizers();
+  Res |= SanitizerKind::Address;
+  Res |= SanitizerKind::KernelAddress;
+  Res |= SanitizerKind::PointerCompare;
+  Res |= SanitizerKind::PointerSubtract;
+  Res |= SanitizerKind::Fuzzer;
+  Res |= SanitizerKind::FuzzerNoLink;
+  Res |= SanitizerKind::Vptr;
+  Res |= SanitizerKind::SafeStack;
+  Res |= SanitizerKind::Thread;
+  Res |= SanitizerKind::Scudo;
+  if (IsX86_64 || IsAArch64 || IsRISCV64) {
+    Res |= SanitizerKind::HWAddress;
+    Res |= SanitizerKind::KernelHWAddress;
+  }
+  return Res;
 }

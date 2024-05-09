@@ -359,6 +359,8 @@ bool XtensaInstrInfo::isBranchOffsetInRange(unsigned BranchOp,
   case Xtensa::JX:
     return true;
   case Xtensa::LOOPEND:
+    assert((BrOffset <= 0) && "Wrong hardware loop");
+    return true;
   case Xtensa::LOOPBR:
     BrOffset += 4;
     assert((BrOffset <= 0) && "Wrong hardware loop");
@@ -788,3 +790,4 @@ bool XtensaInstrInfo::isBranch(const MachineBasicBlock::iterator &MI,
     return false;
   }
 }
+

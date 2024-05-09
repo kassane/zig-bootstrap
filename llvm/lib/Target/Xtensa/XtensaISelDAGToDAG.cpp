@@ -33,7 +33,7 @@ class XtensaDAGToDAGISel : public SelectionDAGISel {
 public:
   static char ID;
 
-  XtensaDAGToDAGISel(XtensaTargetMachine &TM, CodeGenOpt::Level OptLevel)
+  XtensaDAGToDAGISel(XtensaTargetMachine &TM, CodeGenOptLevel OptLevel)
       : SelectionDAGISel(ID, TM, OptLevel), Subtarget(TM.getSubtargetImpl()) {}
 
   // Override MachineFunctionPass.
@@ -44,7 +44,8 @@ public:
   // Override SelectionDAGISel.
   void Select(SDNode *Node) override;
 
-  bool SelectInlineAsmMemoryOperand(const SDValue &Op, unsigned ConstraintID,
+  bool SelectInlineAsmMemoryOperand(const SDValue &Op,
+                                    InlineAsm::ConstraintCode ConstraintID,
                                     std::vector<SDValue> &OutOps) override;
 
   bool selectMemRegAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
@@ -166,7 +167,7 @@ public:
 char XtensaDAGToDAGISel::ID = 0;
 
 FunctionPass *llvm::createXtensaISelDag(XtensaTargetMachine &TM,
-                                        CodeGenOpt::Level OptLevel) {
+                                        CodeGenOptLevel OptLevel) {
   return new XtensaDAGToDAGISel(TM, OptLevel);
 }
 
@@ -488,11 +489,12 @@ void XtensaDAGToDAGISel::Select(SDNode *Node) {
 }
 
 bool XtensaDAGToDAGISel::SelectInlineAsmMemoryOperand(
-    const SDValue &Op, unsigned ConstraintID, std::vector<SDValue> &OutOps) {
+    const SDValue &Op, InlineAsm::ConstraintCode ConstraintID,
+    std::vector<SDValue> &OutOps) {
   switch (ConstraintID) {
   default:
     llvm_unreachable("Unexpected asm memory constraint");
-  case InlineAsm::Constraint_m: {
+  case InlineAsm::ConstraintCode::m: {
     SDValue Base, Offset;
     // TODO
     selectMemRegAddr(Op, Base, Offset, 4);
@@ -500,9 +502,9 @@ bool XtensaDAGToDAGISel::SelectInlineAsmMemoryOperand(
     OutOps.push_back(Offset);
     return false;
   }
-  case InlineAsm::Constraint_i:
-  case InlineAsm::Constraint_R:
-  case InlineAsm::Constraint_ZC:
+  case InlineAsm::ConstraintCode::i:
+  case InlineAsm::ConstraintCode::R:
+  case InlineAsm::ConstraintCode::ZC:
     OutOps.push_back(Op);
     return false;
   }

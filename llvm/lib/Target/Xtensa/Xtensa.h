@@ -25,7 +25,7 @@ class XtensaTargetMachine;
 class FunctionPass;
 
 FunctionPass *createXtensaISelDag(XtensaTargetMachine &TM,
-                                  CodeGenOpt::Level OptLevel);
+                                  CodeGenOptLevel OptLevel);
 FunctionPass *createXtensaSizeReductionPass();
 FunctionPass *createXtensaHardwareLoops();
 FunctionPass *createXtensaFixupHwLoops();

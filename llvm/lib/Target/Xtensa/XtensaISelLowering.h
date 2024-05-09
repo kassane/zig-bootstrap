@@ -156,7 +156,7 @@ public:
   getSingleConstraintMatchWeight(AsmOperandInfo &info,
                                  const char *constraint) const override;
 
-  void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
+  void LowerAsmOperandForConstraint(SDValue Op, StringRef Constraint,
                                     std::vector<SDValue> &Ops,
                                     SelectionDAG &DAG) const override;
 
@@ -255,11 +255,12 @@ private:
                                    unsigned Opcode, bool inv,
                                    bool minmax) const;
 
-  unsigned getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
+  InlineAsm::ConstraintCode
+  getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
     if (ConstraintCode == "R")
-      return InlineAsm::Constraint_R;
+      return InlineAsm::ConstraintCode::R;
     else if (ConstraintCode == "ZC")
-      return InlineAsm::Constraint_ZC;
+      return InlineAsm::ConstraintCode::ZC;
     return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
   }
 };

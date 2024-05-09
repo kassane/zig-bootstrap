@@ -1,4 +1,4 @@
-; RUN: llc -march=amdgcn -verify-machineinstrs -amdgpu-s-branch-bits=5 -stop-after=branch-relaxation  %s -o - | FileCheck %s
+; RUN: llc -mtriple=amdgcn -verify-machineinstrs -amdgpu-s-branch-bits=5 -stop-after=branch-relaxation  %s -o - | FileCheck %s
 
 ; Test long branch reserved register pass when all
 ; SGPRs are used
@@ -11,6 +11,7 @@
 ; CHECK-NEXT:   gdsSize:         0
 ; CHECK-NEXT:   dynLDSAlign:     1
 ; CHECK-NEXT:   isEntryFunction: true
+; CHECK-NEXT:   isChainFunction: false
 ; CHECK-NEXT:   noSignedZerosFPMath: false
 ; CHECK-NEXT:   memoryBound:     false
 ; CHECK-NEXT:   waveLimiter:     false
@@ -275,6 +276,7 @@
 ; CHECK-NEXT:   gdsSize:         0
 ; CHECK-NEXT:   dynLDSAlign:     1
 ; CHECK-NEXT:   isEntryFunction: true
+; CHECK-NEXT:   isChainFunction: false
 ; CHECK-NEXT:   noSignedZerosFPMath: false
 ; CHECK-NEXT:   memoryBound:     false
 ; CHECK-NEXT:   waveLimiter:     false

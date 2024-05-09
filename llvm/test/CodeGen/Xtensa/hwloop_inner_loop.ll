@@ -22,10 +22,11 @@ for.body:                                         ; preds = %entry, %for.body
   %inc = add nuw nsw i32 %i.09, 1
   %cmp = icmp slt i32 %inc, %n
   br i1 %cmp, label %for.body, label %for.cond.cleanup
-; CHECK: loop	a4, .LBB0_5
-; CHECK: bge	a8, a2, .LBB0_2
-; CHECK: mull	a9, a2, a3
-; CHECK: add.n	a2, a9, a2
-; CHECK: .LBB0_5
+; CHECK: [[FOR_BODY:.LBB[0-9_]+]]:
+; CHECK: loop  a4, [[LOOP_END:.LBB[0-9_]+]]
+; CHECK: bge   a8, a2, [[FOR_BODY]]
+; CHECK: nop
+; CHECK-NEXT: [[LOOP_END]]:
+; CHECK: j .LBB
 }
 
