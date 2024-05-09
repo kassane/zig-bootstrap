@@ -36,7 +36,7 @@ project(zig C CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 set(ZIG_VERSION_MAJOR 0)
-set(ZIG_VERSION_MINOR 12)
+set(ZIG_VERSION_MINOR 13)
 set(ZIG_VERSION_PATCH 0)
 set(ZIG_VERSION "" CACHE STRING "Override Zig version string. Default is to find out with git.")
 
@@ -92,6 +92,12 @@ set(ZIG_SHARED_LLVM off CACHE BOOL "Prefer linking against shared LLVM libraries
 set(ZIG_STATIC_LLVM ${ZIG_STATIC} CACHE BOOL "Prefer linking against static LLVM libraries")
 set(ZIG_STATIC_ZLIB ${ZIG_STATIC} CACHE BOOL "Prefer linking against static zlib")
 set(ZIG_STATIC_ZSTD ${ZIG_STATIC} CACHE BOOL "Prefer linking against static zstd")
+if(APPLE AND ZIG_STATIC)
+  set(ZIG_STATIC_CURSES on)
+else()
+  set(ZIG_STATIC_CURSES off)
+endif()
+set(ZIG_STATIC_CURSES ${ZIG_STATIC_CURSES} CACHE BOOL "Prefer linking against static curses")
 set(ZIG_USE_CCACHE off CACHE BOOL "Use ccache")
 
 if(ZIG_USE_CCACHE)
@@ -160,7 +166,7 @@ if(ZIG_STATIC_ZSTD)
     list(APPEND LLVM_LIBRARIES "${ZSTD}")
 endif()
 
-if(APPLE AND ZIG_STATIC)
+if(ZIG_STATIC_CURSES)
     list(REMOVE_ITEM LLVM_LIBRARIES "-lcurses")
     find_library(CURSES NAMES libcurses.a libncurses.a NAMES_PER_DIR
       PATHS
@@ -222,7 +228,7 @@ set(ZIG_STAGE2_SOURCES
     "${CMAKE_SOURCE_DIR}/lib/std/c/linux.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/child_process.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/coff.zig"
-    "${CMAKE_SOURCE_DIR}/lib/std/comptime_string_map.zig"
+    "${CMAKE_SOURCE_DIR}/lib/std/static_string_map.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/crypto.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/crypto/blake3.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/crypto/siphash.zig"
@@ -494,6 +500,7 @@ set(ZIG_STAGE2_SOURCES
     "${CMAKE_SOURCE_DIR}/lib/std/Target/s390x.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/Target/wasm.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/Target/x86.zig"
+    "${CMAKE_SOURCE_DIR}/lib/std/Target/xtensa.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/Thread.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/Thread/Futex.zig"
     "${CMAKE_SOURCE_DIR}/lib/std/Thread/Mutex.zig"
