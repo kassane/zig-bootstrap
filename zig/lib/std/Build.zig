@@ -178,7 +178,7 @@ pub const RunError = error{
     ExitCodeFailure,
     ProcessTerminated,
     ExecNotSupported,
-} || std.ChildProcess.SpawnError;
+} || std.process.Child.SpawnError;
 
 pub const PkgConfigError = error{
     PkgConfigCrashed,
@@ -199,7 +199,7 @@ const AvailableOption = struct {
     name: []const u8,
     type_id: TypeId,
     description: []const u8,
-    /// If the `type_id` is `enum` this provides the list of enum options
+    /// If the `type_id` is `enum` or `enum_list` this provides the list of enum options
     enum_options: ?[]const []const u8,
 };
 
@@ -221,6 +221,7 @@ const TypeId = enum {
     int,
     float,
     @"enum",
+    enum_list,
     string,
     list,
     build_id,
@@ -885,7 +886,7 @@ pub fn addTest(b: *Build, options: TestOptions) *Step.Compile {
         .kind = .@"test",
         .root_module = .{
             .root_source_file = options.root_source_file,
-            .target = options.target orelse b.host,
+            .target = options.target orelse b.graph.host,
             .optimize = options.optimize,
             .link_libc = options.link_libc,
             .single_threaded = options.single_threaded,
@@ -971,10 +972,24 @@ pub fn addRunArtifact(b: *Build, exe: *Step.Compile) *Step.Run {
     // Consider that this is declarative; the run step may not be run unless a user
     // option is supplied.
     const run_step = Step.Run.create(b, b.fmt("run {s}", .{exe.name}));
-    run_step.addArtifactArg(exe);
+    if (exe.kind == .@"test") {
+        if (exe.exec_cmd_args) |exec_cmd_args| {
+            for (exec_cmd_args) |cmd_arg| {
+                if (cmd_arg) |arg| {
+                    run_step.addArg(arg);
+                } else {
+                    run_step.addArtifactArg(exe);
+                }
+            }
+        } else {
+            run_step.addArtifactArg(exe);
+        }
 
-    if (exe.kind == .@"test" and exe.test_server_mode) {
-        run_step.enableTestRunnerMode();
+        if (exe.test_server_mode) {
+            run_step.enableTestRunnerMode();
+        }
+    } else {
+        run_step.addArtifactArg(exe);
     }
 
     return run_step;
@@ -1059,7 +1074,7 @@ pub fn getUninstallStep(b: *Build) *Step {
     return &b.uninstall_tls.step;
 }
 
-fn makeUninstall(uninstall_step: *Step, prog_node: *std.Progress.Node) anyerror!void {
+fn makeUninstall(uninstall_step: *Step, prog_node: std.Progress.Node) anyerror!void {
     _ = prog_node;
     const uninstall_tls: *TopLevelStep = @fieldParentPtr("step", uninstall_step);
     const b: *Build = @fieldParentPtr("uninstall_tls", uninstall_tls);
@@ -1084,8 +1099,9 @@ pub fn option(b: *Build, comptime T: type, name_raw: []const u8, description_raw
     const name = b.dupe(name_raw);
     const description = b.dupe(description_raw);
     const type_id = comptime typeToEnum(T);
-    const enum_options = if (type_id == .@"enum") blk: {
-        const fields = comptime std.meta.fields(T);
+    const enum_options = if (type_id == .@"enum" or type_id == .enum_list) blk: {
+        const EnumType = if (type_id == .enum_list) @typeInfo(T).Pointer.child else T;
+        const fields = comptime std.meta.fields(EnumType);
         var options = ArrayList([]const u8).initCapacity(b.allocator, fields.len) catch @panic("OOM");
 
         inline for (fields) |field| {
@@ -1228,6 +1244,38 @@ pub fn option(b: *Build, comptime T: type, name_raw: []const u8, description_raw
                 return b.allocator.dupe([]const u8, &[_][]const u8{s}) catch @panic("OOM");
             },
             .list => |lst| return lst.items,
+        },
+        .enum_list => switch (option_ptr.value) {
+            .flag, .map => {
+                log.err("Expected -D{s} to be a list, but received a {s}.", .{
+                    name, @tagName(option_ptr.value),
+                });
+                b.markInvalidUserInput();
+                return null;
+            },
+            .scalar => |s| {
+                const Child = @typeInfo(T).Pointer.child;
+                const value = std.meta.stringToEnum(Child, s) orelse {
+                    log.err("Expected -D{s} to be of type {s}.", .{ name, @typeName(Child) });
+                    b.markInvalidUserInput();
+                    return null;
+                };
+                return b.allocator.dupe(Child, &[_]Child{value}) catch @panic("OOM");
+            },
+            .list => |lst| {
+                const Child = @typeInfo(T).Pointer.child;
+                var new_list = b.allocator.alloc(Child, lst.items.len) catch @panic("OOM");
+                for (lst.items, 0..) |str, i| {
+                    const value = std.meta.stringToEnum(Child, str) orelse {
+                        log.err("Expected -D{s} to be of type {s}.", .{ name, @typeName(Child) });
+                        b.markInvalidUserInput();
+                        b.allocator.free(new_list);
+                        return null;
+                    };
+                    new_list[i] = value;
+                }
+                return new_list;
+            },
         },
     }
 }
@@ -1487,11 +1535,15 @@ fn typeToEnum(comptime T: type) TypeId {
             .Float => .float,
             .Bool => .bool,
             .Enum => .@"enum",
-            else => switch (T) {
-                []const u8 => .string,
-                []const []const u8 => .list,
-                else => @compileError("Unsupported type: " ++ @typeName(T)),
+            .Pointer => |pointer| switch (pointer.child) {
+                u8 => .string,
+                []const u8 => .list,
+                else => switch (@typeInfo(pointer.child)) {
+                    .Enum => .enum_list,
+                    else => @compileError("Unsupported type: " ++ @typeName(T)),
+                },
             },
+            else => @compileError("Unsupported type: " ++ @typeName(T)),
         },
     };
 }
@@ -1673,7 +1725,7 @@ pub fn fmt(b: *Build, comptime format: []const u8, args: anytype) []u8 {
 
 pub fn findProgram(b: *Build, names: []const []const u8, paths: []const []const u8) ![]const u8 {
     // TODO report error for ambiguous situations
-    const exe_extension = b.host.result.exeFileExt();
+    const exe_extension = b.graph.host.result.exeFileExt();
     for (b.search_prefixes.items) |search_prefix| {
         for (names) |name| {
             if (fs.path.isAbsolute(name)) {
@@ -1719,7 +1771,7 @@ pub fn runAllowFail(
     b: *Build,
     argv: []const []const u8,
     out_code: *u8,
-    stderr_behavior: std.ChildProcess.StdIo,
+    stderr_behavior: std.process.Child.StdIo,
 ) RunError![]u8 {
     assert(argv.len != 0);
 
@@ -1727,7 +1779,7 @@ pub fn runAllowFail(
         return error.ExecNotSupported;
 
     const max_output_size = 400 * 1024;
-    var child = std.ChildProcess.init(argv, b.allocator);
+    var child = std.process.Child.init(argv, b.allocator);
     child.stdin_behavior = .Ignore;
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = stderr_behavior;
@@ -2281,10 +2333,10 @@ pub const LazyPath = union(enum) {
             .cwd_relative => |p| return src_builder.pathFromCwd(p),
             .generated => |gen| {
                 var file_path: []const u8 = gen.file.step.owner.pathFromRoot(gen.file.path orelse {
-                    std.debug.getStderrMutex().lock();
+                    std.debug.lockStdErr();
                     const stderr = std.io.getStdErr();
                     dumpBadGetPathHelp(gen.file.step, stderr, src_builder, asking_step) catch {};
-                    std.debug.getStderrMutex().unlock();
+                    std.debug.unlockStdErr();
                     @panic("misconfigured build script");
                 });
 
@@ -2351,8 +2403,8 @@ fn dumpBadDirnameHelp(
     comptime msg: []const u8,
     args: anytype,
 ) anyerror!void {
-    debug.getStderrMutex().lock();
-    defer debug.getStderrMutex().unlock();
+    debug.lockStdErr();
+    defer debug.unlockStdErr();
 
     const stderr = io.getStdErr();
     const w = stderr.writer();

@@ -9,13 +9,13 @@ const fs = std.fs;
 const InstallDirectoryOptions = std.Build.InstallDirectoryOptions;
 const assert = std.debug.assert;
 
-const zig_version: std.SemanticVersion = .{ .major = 0, .minor = 13, .patch = 0 };
+const zig_version: std.SemanticVersion = .{ .major = 0, .minor = 14, .patch = 0 };
 const stack_size = 32 * 1024 * 1024;
 
 pub fn build(b: *std.Build) !void {
     const only_c = b.option(bool, "only-c", "Translate the Zig compiler to C code, with only the C backend enabled") orelse false;
     const target = t: {
-        var default_target: std.zig.CrossTarget = .{};
+        var default_target: std.Target.Query = .{};
         default_target.ofmt = b.option(std.Target.ObjectFormat, "ofmt", "Object format to target") orelse if (only_c) .c else null;
         break :t b.standardTargetOptions(.{ .default_target = default_target });
     };
@@ -72,7 +72,7 @@ pub fn build(b: *std.Build) !void {
     const check_case_exe = b.addExecutable(.{
         .name = "check-case",
         .root_source_file = b.path("test/src/Cases.zig"),
-        .target = b.host,
+        .target = b.graph.host,
         .optimize = optimize,
         .single_threaded = single_threaded,
     });
@@ -489,6 +489,7 @@ pub fn build(b: *std.Build) !void {
         .skip_single_threaded = true,
         .skip_non_native = skip_non_native,
         .skip_libc = true,
+        .no_builtin = true,
     }));
 
     test_step.dependOn(tests.addModuleTests(b, .{
@@ -501,6 +502,7 @@ pub fn build(b: *std.Build) !void {
         .skip_single_threaded = true,
         .skip_non_native = skip_non_native,
         .skip_libc = true,
+        .no_builtin = true,
     }));
 
     test_step.dependOn(tests.addCompareOutputTests(b, test_filters, optimization_modes));
@@ -539,7 +541,7 @@ pub fn build(b: *std.Build) !void {
     const opt_mingw_src_path = b.option([]const u8, "mingw-src", "path to mingw-w64 source directory");
     const update_mingw_exe = b.addExecutable(.{
         .name = "update_mingw",
-        .target = b.host,
+        .target = b.graph.host,
         .root_source_file = b.path("tools/update_mingw.zig"),
     });
     const update_mingw_run = b.addRunArtifact(update_mingw_exe);
@@ -557,7 +559,7 @@ pub fn build(b: *std.Build) !void {
 fn addWasiUpdateStep(b: *std.Build, version: [:0]const u8) !void {
     const semver = try std.SemanticVersion.parse(version);
 
-    var target_query: std.zig.CrossTarget = .{
+    var target_query: std.Target.Query = .{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
     };
@@ -650,9 +652,10 @@ const exe_cflags = [_][]const u8{
     "-D__STDC_FORMAT_MACROS",
     "-D__STDC_LIMIT_MACROS",
     "-D_GNU_SOURCE",
-    "-fvisibility-inlines-hidden",
     "-fno-exceptions",
     "-fno-rtti",
+    "-fno-stack-protector",
+    "-fvisibility-inlines-hidden",
     "-Wno-type-limits",
     "-Wno-missing-braces",
     "-Wno-comment",
@@ -705,7 +708,7 @@ fn addCmakeCfgOptionsToExe(
                 };
                 exe.linkSystemLibrary("unwind");
             },
-            .ios, .macos, .watchos, .tvos => {
+            .ios, .macos, .watchos, .tvos, .visionos => {
                 exe.linkLibCpp();
             },
             .windows => {
@@ -1261,7 +1264,7 @@ fn generateLangRef(b: *std.Build) std.Build.LazyPath {
     const doctest_exe = b.addExecutable(.{
         .name = "doctest",
         .root_source_file = b.path("tools/doctest.zig"),
-        .target = b.host,
+        .target = b.graph.host,
         .optimize = .Debug,
     });
 
@@ -1299,7 +1302,7 @@ fn generateLangRef(b: *std.Build) std.Build.LazyPath {
     const docgen_exe = b.addExecutable(.{
         .name = "docgen",
         .root_source_file = b.path("tools/docgen.zig"),
-        .target = b.host,
+        .target = b.graph.host,
         .optimize = .Debug,
     });
 

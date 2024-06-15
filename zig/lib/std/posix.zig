@@ -19,7 +19,7 @@ const root = @import("root");
 const std = @import("std.zig");
 const mem = std.mem;
 const fs = std.fs;
-const max_path_bytes = fs.MAX_PATH_BYTES;
+const max_path_bytes = fs.max_path_bytes;
 const maxInt = std.math.maxInt;
 const cast = std.math.cast;
 const assert = std.debug.assert;
@@ -604,7 +604,7 @@ pub fn getrandom(buffer: []u8) GetRandomError!void {
         }
     }
     switch (native_os) {
-        .netbsd, .openbsd, .macos, .ios, .tvos, .watchos => {
+        .netbsd, .openbsd, .macos, .ios, .tvos, .watchos, .visionos => {
             system.arc4random_buf(buffer.ptr, buffer.len);
             return;
         },
@@ -823,7 +823,7 @@ pub fn read(fd: fd_t, buf: []u8) ReadError!usize {
     // Prevents EINVAL.
     const max_count = switch (native_os) {
         .linux => 0x7ffff000,
-        .macos, .ios, .watchos, .tvos => maxInt(i32),
+        .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
     while (true) {
@@ -962,7 +962,7 @@ pub fn pread(fd: fd_t, buf: []u8, offset: u64) PReadError!usize {
     // Prevent EINVAL.
     const max_count = switch (native_os) {
         .linux => 0x7ffff000,
-        .macos, .ios, .watchos, .tvos => maxInt(i32),
+        .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
 
@@ -1069,7 +1069,7 @@ pub fn ftruncate(fd: fd_t, length: u64) TruncateError!void {
 /// On these systems, the read races with concurrent writes to the same file descriptor.
 pub fn preadv(fd: fd_t, iov: []const iovec, offset: u64) PReadError!usize {
     const have_pread_but_not_preadv = switch (native_os) {
-        .windows, .macos, .ios, .watchos, .tvos, .haiku => true,
+        .windows, .macos, .ios, .watchos, .tvos, .visionos, .haiku => true,
         else => false,
     };
     if (have_pread_but_not_preadv) {
@@ -1211,7 +1211,7 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
 
     const max_count = switch (native_os) {
         .linux => 0x7ffff000,
-        .macos, .ios, .watchos, .tvos => maxInt(i32),
+        .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
     while (true) {
@@ -1370,7 +1370,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
     // Prevent EINVAL.
     const max_count = switch (native_os) {
         .linux => 0x7ffff000,
-        .macos, .ios, .watchos, .tvos => maxInt(i32),
+        .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
 
@@ -1423,7 +1423,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
 /// If `iov.len` is larger than `IOV_MAX`, a partial write will occur.
 pub fn pwritev(fd: fd_t, iov: []const iovec_const, offset: u64) PWriteError!usize {
     const have_pwrite_but_not_pwritev = switch (native_os) {
-        .windows, .macos, .ios, .watchos, .tvos, .haiku => true,
+        .windows, .macos, .ios, .watchos, .tvos, .visionos, .haiku => true,
         else => false,
     };
 
@@ -1846,7 +1846,7 @@ pub fn execveZ(
         .NOTDIR => return error.NotDir,
         .TXTBSY => return error.FileBusy,
         else => |err| switch (native_os) {
-            .macos, .ios, .tvos, .watchos => switch (err) {
+            .macos, .ios, .tvos, .watchos, .visionos => switch (err) {
                 .BADEXEC => return error.InvalidExe,
                 .BADARCH => return error.InvalidExe,
                 else => return unexpectedErrno(err),
@@ -2770,9 +2770,6 @@ pub fn renameatW(
             .SUCCESS => return,
             // INVALID_PARAMETER here means that the filesystem does not support FileRenameInformationEx
             .INVALID_PARAMETER => {},
-            .DIRECTORY_NOT_EMPTY => return error.PathAlreadyExists,
-            .FILE_IS_A_DIRECTORY => return error.IsDir,
-            .NOT_A_DIRECTORY => return error.NotDir,
             // For all other statuses, fall down to the switch below to handle them.
             else => need_fallback = false,
         }
@@ -2815,6 +2812,9 @@ pub fn renameatW(
         .OBJECT_PATH_NOT_FOUND => return error.FileNotFound,
         .NOT_SAME_DEVICE => return error.RenameAcrossMountPoints,
         .OBJECT_NAME_COLLISION => return error.PathAlreadyExists,
+        .DIRECTORY_NOT_EMPTY => return error.PathAlreadyExists,
+        .FILE_IS_A_DIRECTORY => return error.IsDir,
+        .NOT_A_DIRECTORY => return error.NotDir,
         else => return windows.unexpectedStatus(rc),
     }
 }
@@ -5403,7 +5403,7 @@ pub fn realpathW(pathname: []const u16, out_buffer: *[max_path_bytes]u8) RealPat
 
     const dir = fs.cwd().fd;
     const access_mask = w.GENERIC_READ | w.SYNCHRONIZE;
-    const share_access = w.FILE_SHARE_READ;
+    const share_access = w.FILE_SHARE_READ | w.FILE_SHARE_WRITE | w.FILE_SHARE_DELETE;
     const creation = w.FILE_OPEN;
     const h_file = blk: {
         const res = w.OpenFile(pathname, .{
@@ -5933,6 +5933,8 @@ pub fn sendmsg(
 pub const SendToError = SendMsgError || error{
     /// The destination address is not reachable by the bound address.
     UnreachableAddress,
+    /// The destination address is not listening.
+    ConnectionRefused,
 };
 
 /// Transmit a message to another socket.
@@ -6005,6 +6007,7 @@ pub fn sendto(
             .AGAIN => return error.WouldBlock,
             .ALREADY => return error.FastOpenAlreadyInProgress,
             .BADF => unreachable, // always a race condition
+            .CONNREFUSED => return error.ConnectionRefused,
             .CONNRESET => return error.ConnectionResetByPeer,
             .DESTADDRREQ => unreachable, // The socket is not connection-mode, and no peer address is set.
             .FAULT => unreachable, // An invalid user space address was specified for an argument.
@@ -6066,6 +6069,7 @@ pub fn send(
         error.AddressNotAvailable => unreachable,
         error.SocketNotConnected => unreachable,
         error.UnreachableAddress => unreachable,
+        error.ConnectionRefused => unreachable,
         else => |e| return e,
     };
 }
@@ -6123,7 +6127,7 @@ pub fn sendfile(
     const size_t = std.meta.Int(.unsigned, @typeInfo(usize).Int.bits - 1);
     const max_count = switch (native_os) {
         .linux => 0x7ffff000,
-        .macos, .ios, .watchos, .tvos => maxInt(i32),
+        .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(size_t),
     };
 
@@ -6268,7 +6272,7 @@ pub fn sendfile(
                 }
             }
         },
-        .macos, .ios, .tvos, .watchos => sf: {
+        .macos, .ios, .tvos, .watchos, .visionos => sf: {
             var hdtr_data: std.c.sf_hdtr = undefined;
             var hdtr: ?*std.c.sf_hdtr = null;
             if (headers.len != 0 or trailers.len != 0) {
@@ -7244,7 +7248,7 @@ pub fn ptrace(request: u32, pid: pid_t, addr: usize, signal: usize) PtraceError!
             else => |err| return unexpectedErrno(err),
         },
 
-        .macos, .ios, .tvos, .watchos => switch (errno(std.c.ptrace(
+        .macos, .ios, .tvos, .watchos, .visionos => switch (errno(std.c.ptrace(
             @intCast(request),
             pid,
             @ptrFromInt(addr),
