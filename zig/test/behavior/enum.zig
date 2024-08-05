@@ -610,7 +610,6 @@ fn testEnumWithSpecifiedTagValues(x: MultipleChoice) !void {
 test "enum with specified tag values" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     try testEnumWithSpecifiedTagValues(MultipleChoice.C);
     try comptime testEnumWithSpecifiedTagValues(MultipleChoice.C);
@@ -619,7 +618,6 @@ test "enum with specified tag values" {
 test "non-exhaustive enum" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     const S = struct {
         const E = enum(u8) { a, b, _ };
@@ -684,7 +682,6 @@ test "empty non-exhaustive enum" {
 test "single field non-exhaustive enum" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     const S = struct {
         const E = enum(u8) { a, _ };
@@ -749,7 +746,6 @@ test "cast integer literal to enum" {
 test "enum with specified and unspecified tag values" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     try testEnumWithSpecifiedAndUnspecifiedTagValues(MultipleChoice2.D);
     try comptime testEnumWithSpecifiedAndUnspecifiedTagValues(MultipleChoice2.D);
@@ -858,8 +854,6 @@ fn doALoopThing(id: EnumWithOneMember) void {
 }
 
 test "comparison operator on enum with one member is comptime-known" {
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
-
     doALoopThing(EnumWithOneMember.Eof);
 }
 
@@ -913,7 +907,6 @@ test "enum literal casting to tagged union" {
     if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     const Arch = union(enum) {
         x86_64,
@@ -940,7 +933,6 @@ const Bar = enum { A, B, C, D };
 test "enum literal casting to error union with payload enum" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     var bar: error{B}!Bar = undefined;
     bar = .B; // should never cast to the error set
@@ -1082,7 +1074,6 @@ test "enum literal casting to optional" {
     if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     var bar: ?Bar = undefined;
     bar = .B;
@@ -1111,7 +1102,6 @@ test "bit field access with enum fields" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_spirv64) return error.SkipZigTest;
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
     var data = bit_field_1;
     try expect(getA(&data) == A.Two);
@@ -1229,8 +1219,6 @@ test "enum tag from a local variable" {
 }
 
 test "auto-numbered enum with signed tag type" {
-    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
-
     const E = enum(i32) { a, b };
 
     try std.testing.expectEqual(@as(i32, 0), @intFromEnum(E.a));
@@ -1284,7 +1272,6 @@ test "matching captures causes enum equivalence" {
 }
 
 test "large enum field values" {
-    if (builtin.zig_backend == .stage2_wasm) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
     if (builtin.zig_backend == .stage2_spirv64) return error.SkipZigTest;
 

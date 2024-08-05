@@ -1,14 +1,14 @@
 const std = @import("std");
-const Type = @import("type.zig").Type;
+const Type = @import("Type.zig");
 const AddressSpace = std.builtin.AddressSpace;
 const Alignment = @import("InternPool.zig").Alignment;
-const Feature = @import("Module.zig").Feature;
+const Feature = @import("Zcu.zig").Feature;
 
 pub const default_stack_protector_buffer_size = 4;
 
 pub fn cannotDynamicLink(target: std.Target) bool {
     return switch (target.os.tag) {
-        .freestanding, .other => true,
+        .freestanding => true,
         else => target.isSpirV(),
     };
 }
@@ -78,7 +78,6 @@ pub fn hasValgrindSupport(target: std.Target) bool {
         .x86,
         .x86_64,
         .aarch64,
-        .aarch64_32,
         .aarch64_be,
         => {
             return target.os.tag == .linux or target.os.tag == .solaris or target.os.tag == .illumos or
@@ -115,7 +114,6 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         .armeb,
         .aarch64,
         .aarch64_be,
-        .aarch64_32,
         .arc,
         .avr,
         .bpfel,
@@ -135,16 +133,12 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         .powerpcle,
         .powerpc64,
         .powerpc64le,
-        .r600,
         .amdgcn,
         .riscv32,
         .riscv64,
         .sparc,
         .sparc64,
-        .sparcel,
         .s390x,
-        .tce,
-        .tcele,
         .thumb,
         .thumbeb,
         .x86,
@@ -153,24 +147,13 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         .xtensa,
         .nvptx,
         .nvptx64,
-        .le32,
-        .le64,
-        .amdil,
-        .amdil64,
-        .hsail,
-        .hsail64,
-        .spir,
-        .spir64,
         .spirv,
         .spirv32,
         .spirv64,
         .kalimba,
-        .shave,
         .lanai,
         .wasm32,
         .wasm64,
-        .renderscript32,
-        .renderscript64,
         .ve,
         => true,
 
@@ -280,7 +263,6 @@ pub fn hasRedZone(target: std.Target) bool {
         .x86,
         .aarch64,
         .aarch64_be,
-        .aarch64_32,
         => true,
 
         else => false,
@@ -345,7 +327,7 @@ pub fn clangAssemblerSupportsMcpuArg(target: std.Target) bool {
 }
 
 pub fn needUnwindTables(target: std.Target) bool {
-    return target.os.tag == .windows or target.isDarwin() or std.dwarf.abi.supportsUnwinding(target);
+    return target.os.tag == .windows or target.isDarwin() or std.debug.Dwarf.abi.supportsUnwinding(target);
 }
 
 pub fn defaultAddressSpace(
@@ -424,9 +406,24 @@ pub fn llvmMachineAbi(target: std.Target) ?[:0]const u8 {
 pub fn defaultFunctionAlignment(target: std.Target) Alignment {
     return switch (target.cpu.arch) {
         .arm, .armeb => .@"4",
-        .aarch64, .aarch64_32, .aarch64_be => .@"4",
-        .sparc, .sparcel, .sparc64 => .@"4",
+        .aarch64, .aarch64_be => .@"4",
+        .sparc, .sparc64 => .@"4",
         .riscv64 => .@"2",
+        else => .@"1",
+    };
+}
+
+pub fn minFunctionAlignment(target: std.Target) Alignment {
+    return switch (target.cpu.arch) {
+        .arm,
+        .armeb,
+        .aarch64,
+        .aarch64_be,
+        .riscv32,
+        .riscv64,
+        .sparc,
+        .sparc64,
+        => .@"2",
         else => .@"1",
     };
 }
@@ -512,7 +509,7 @@ pub fn zigBackend(target: std.Target, use_llvm: bool) std.builtin.CompilerBacken
         .arm, .armeb, .thumb, .thumbeb => .stage2_arm,
         .x86_64 => .stage2_x86_64,
         .x86 => .stage2_x86,
-        .aarch64, .aarch64_be, .aarch64_32 => .stage2_aarch64,
+        .aarch64, .aarch64_be => .stage2_aarch64,
         .riscv64 => .stage2_riscv64,
         .sparc64 => .stage2_sparc64,
         .spirv64 => .stage2_spirv64,
@@ -520,20 +517,43 @@ pub fn zigBackend(target: std.Target, use_llvm: bool) std.builtin.CompilerBacken
     };
 }
 
-pub fn backendSupportsFeature(
-    cpu_arch: std.Target.Cpu.Arch,
-    ofmt: std.Target.ObjectFormat,
-    use_llvm: bool,
-    feature: Feature,
-) bool {
+pub inline fn backendSupportsFeature(backend: std.builtin.CompilerBackend, comptime feature: Feature) bool {
     return switch (feature) {
-        .panic_fn => ofmt == .c or use_llvm or cpu_arch == .x86_64 or cpu_arch == .riscv64,
-        .panic_unwrap_error => ofmt == .c or use_llvm,
-        .safety_check_formatted => ofmt == .c or use_llvm,
-        .error_return_trace => use_llvm,
-        .is_named_enum_value => use_llvm,
-        .error_set_has_value => use_llvm or cpu_arch.isWasm(),
-        .field_reordering => ofmt == .c or use_llvm,
-        .safety_checked_instructions => use_llvm,
+        .panic_fn => switch (backend) {
+            .stage2_c, .stage2_llvm, .stage2_x86_64, .stage2_riscv64 => true,
+            else => false,
+        },
+        .panic_unwrap_error => switch (backend) {
+            .stage2_c, .stage2_llvm => true,
+            else => false,
+        },
+        .safety_check_formatted => switch (backend) {
+            .stage2_c, .stage2_llvm => true,
+            else => false,
+        },
+        .error_return_trace => switch (backend) {
+            .stage2_llvm => true,
+            else => false,
+        },
+        .is_named_enum_value => switch (backend) {
+            .stage2_llvm => true,
+            else => false,
+        },
+        .error_set_has_value => switch (backend) {
+            .stage2_llvm, .stage2_wasm => true,
+            else => false,
+        },
+        .field_reordering => switch (backend) {
+            .stage2_c, .stage2_llvm => true,
+            else => false,
+        },
+        .safety_checked_instructions => switch (backend) {
+            .stage2_llvm => true,
+            else => false,
+        },
+        .separate_thread => switch (backend) {
+            .stage2_llvm => false,
+            else => true,
+        },
     };
 }

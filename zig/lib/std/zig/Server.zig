@@ -20,8 +20,23 @@ pub const Message = struct {
         test_metadata,
         /// Body is a TestResults
         test_results,
+        /// Body is a series of strings, delimited by null bytes.
+        /// Each string is a prefixed file path.
+        /// The first byte indicates the file prefix path (see prefixes fields
+        /// of Cache). This byte is sent over the wire incremented so that null
+        /// bytes are not confused with string terminators.
+        /// The remaining bytes is the file path relative to that prefix.
+        /// The prefixes are hard-coded in Compilation.create (cwd, zig lib dir, local cache dir)
+        file_system_inputs,
 
         _,
+    };
+
+    pub const PathPrefix = enum(u8) {
+        cwd,
+        zig_lib,
+        local_cache,
+        global_cache,
     };
 
     /// Trailing:
@@ -38,7 +53,7 @@ pub const Message = struct {
     ///   - null-terminated string_bytes index
     /// * expected_panic_msg: [tests_len]u32,
     ///   - null-terminated string_bytes index
-    ///   - 0 means does not expect pani
+    ///   - 0 means does not expect panic
     /// * string_bytes: [string_bytes_len]u8,
     pub const TestMetadata = extern struct {
         string_bytes_len: u32,
@@ -53,12 +68,13 @@ pub const Message = struct {
             fail: bool,
             skip: bool,
             leak: bool,
-            log_err_count: u29 = 0,
+            fuzz: bool,
+            log_err_count: u28 = 0,
         };
     };
 
     /// Trailing:
-    /// * the file system path the emitted binary can be found
+    /// * file system path where the emitted binary can be found
     pub const EmitBinPath = extern struct {
         flags: Flags,
 
@@ -94,6 +110,7 @@ pub fn deinit(s: *Server) void {
 pub fn receiveMessage(s: *Server) !InMessage.Header {
     const Header = InMessage.Header;
     const fifo = &s.receive_fifo;
+    var last_amt_zero = false;
 
     while (true) {
         const buf = fifo.readableSlice(0);
@@ -121,6 +138,10 @@ pub fn receiveMessage(s: *Server) !InMessage.Header {
         const write_buffer = try fifo.writableWithSize(256);
         const amt = try s.in.read(write_buffer);
         fifo.update(amt);
+        if (amt == 0) {
+            if (last_amt_zero) return error.BrokenPipe;
+            last_amt_zero = true;
+        }
     }
 }
 

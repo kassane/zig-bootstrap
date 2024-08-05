@@ -42,8 +42,8 @@ pub const Fde = struct {
         const object = elf_file.file(fde.file_index).?.object;
         const rel = fde.relocs(elf_file)[0];
         const sym = object.symtab.items[rel.r_sym()];
-        const atom_index = object.atoms.items[sym.st_shndx];
-        return elf_file.atom(atom_index).?;
+        const atom_index = object.atoms_indexes.items[sym.st_shndx];
+        return object.atom(atom_index).?;
     }
 
     pub fn relocs(fde: Fde, elf_file: *Elf) []align(1) const elf.Elf64_Rela {
@@ -421,7 +421,7 @@ fn emitReloc(elf_file: *Elf, rec: anytype, sym: *const Symbol, rel: elf.Elf64_Re
     switch (sym.type(elf_file)) {
         elf.STT_SECTION => {
             r_addend += @intCast(sym.address(.{}, elf_file));
-            r_sym = elf_file.sectionSymbolOutputSymtabIndex(sym.outputShndx().?);
+            r_sym = elf_file.sectionSymbolOutputSymtabIndex(sym.outputShndx(elf_file).?);
         },
         else => {
             r_sym = sym.outputSymtabIndex(elf_file) orelse 0;
@@ -591,12 +591,12 @@ const riscv = struct {
 };
 
 fn reportInvalidReloc(rec: anytype, elf_file: *Elf, rel: elf.Elf64_Rela) !void {
-    var err = try elf_file.addErrorWithNotes(1);
-    try err.addMsg(elf_file, "invalid relocation type {} at offset 0x{x}", .{
+    var err = try elf_file.base.addErrorWithNotes(1);
+    try err.addMsg("invalid relocation type {} at offset 0x{x}", .{
         relocation.fmtRelocType(rel.r_type(), elf_file.getTarget().cpu.arch),
         rel.r_offset,
     });
-    try err.addNote(elf_file, "in {}:.eh_frame", .{elf_file.file(rec.file_index).?.fmtPath()});
+    try err.addNote("in {}:.eh_frame", .{elf_file.file(rec.file_index).?.fmtPath()});
     return error.RelocFailure;
 }
 

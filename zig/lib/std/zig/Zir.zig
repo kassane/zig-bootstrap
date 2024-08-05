@@ -1,5 +1,7 @@
-//! Zig Intermediate Representation. Astgen.zig converts AST nodes to these
-//! untyped IR instructions. Next, Sema.zig processes these into AIR.
+//! Zig Intermediate Representation.
+//!
+//! Astgen.zig converts AST nodes to these untyped IR instructions. Next,
+//! Sema.zig processes these into AIR.
 //! The minimum amount of information needed to represent a list of ZIR instructions.
 //! Once this structure is completed, it can be used to generate AIR, followed by
 //! machine code, without any memory access into the AST tree token list, node list,
@@ -20,7 +22,6 @@ const BigIntMutable = std.math.big.int.Mutable;
 const Ast = std.zig.Ast;
 
 const Zir = @This();
-const LazySrcLoc = std.zig.LazySrcLoc;
 
 instructions: std.MultiArrayList(Inst).Slice,
 /// In order to store references to strings in fewer bytes, we copy all
@@ -287,7 +288,7 @@ pub const Inst = struct {
         /// namespace type, e.g. within a `struct_decl` instruction. It represents a
         /// single source declaration (`const`/`var`/`fn`), containing the name,
         /// attributes, type, and value of the declaration.
-        /// Uses the `pl_node` union field. Payload is `Declaration`.
+        /// Uses the `declaration` union field. Payload is `Declaration`.
         declaration,
         /// Implements `suspend {...}`.
         /// Uses the `pl_node` union field. Payload is `Block`.
@@ -1552,7 +1553,7 @@ pub const Inst = struct {
                 => false,
 
                 .extended => switch (data.extended.opcode) {
-                    .fence, .set_cold, .breakpoint => true,
+                    .fence, .set_cold, .breakpoint, .disable_instrumentation => true,
                     else => false,
                 },
             };
@@ -1596,7 +1597,7 @@ pub const Inst = struct {
                 .block = .pl_node,
                 .block_comptime = .pl_node,
                 .block_inline = .pl_node,
-                .declaration = .pl_node,
+                .declaration = .declaration,
                 .suspend_block = .pl_node,
                 .bool_not = .un_node,
                 .bool_br_and = .pl_node,
@@ -1972,6 +1973,8 @@ pub const Inst = struct {
         /// Implements `@breakpoint`.
         /// `operand` is `src_node: i32`.
         breakpoint,
+        /// Implement builtin `@disableInstrumentation`. `operand` is `src_node: i32`.
+        disable_instrumentation,
         /// Implements the `@select` builtin.
         /// `operand` is payload index to `Select`.
         select,
@@ -1982,7 +1985,7 @@ pub const Inst = struct {
         /// `operand` is payload index to `UnNode`.
         error_from_int,
         /// Implement builtin `@Type`.
-        /// `operand` is payload index to `UnNode`.
+        /// `operand` is payload index to `Reify`.
         /// `small` contains `NameStrategy`.
         reify,
         /// Implements the `@asyncCall` builtin.
@@ -2221,10 +2224,6 @@ pub const Inst = struct {
             src_node: i32,
             /// The meaning of this operand depends on the corresponding `Tag`.
             operand: Ref,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return LazySrcLoc.nodeOffset(self.src_node);
-            }
         },
         /// Used for unary operators, with a token source location.
         un_tok: struct {
@@ -2232,10 +2231,6 @@ pub const Inst = struct {
             src_tok: Ast.TokenIndex,
             /// The meaning of this operand depends on the corresponding `Tag`.
             operand: Ref,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return .{ .token_offset = self.src_tok };
-            }
         },
         pl_node: struct {
             /// Offset from Decl AST node index.
@@ -2244,10 +2239,6 @@ pub const Inst = struct {
             /// index into extra.
             /// `Tag` determines what lives there.
             payload_index: u32,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return LazySrcLoc.nodeOffset(self.src_node);
-            }
         },
         pl_tok: struct {
             /// Offset from Decl AST token index.
@@ -2255,10 +2246,6 @@ pub const Inst = struct {
             /// index into extra.
             /// `Tag` determines what lives there.
             payload_index: u32,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return .{ .token_offset = self.src_tok };
-            }
         },
         bin: Bin,
         /// For strings which may contain null bytes.
@@ -2280,10 +2267,6 @@ pub const Inst = struct {
 
             pub fn get(self: @This(), code: Zir) [:0]const u8 {
                 return code.nullTerminatedString(self.start);
-            }
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return .{ .token_offset = self.src_tok };
             }
         },
         /// Offset from Decl AST token index.
@@ -2313,19 +2296,11 @@ pub const Inst = struct {
             src_node: i32,
             signedness: std.builtin.Signedness,
             bit_count: u16,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return LazySrcLoc.nodeOffset(self.src_node);
-            }
         },
         @"unreachable": struct {
             /// Offset from Decl AST node index.
             /// `Tag` determines which kind of AST node this points to.
             src_node: i32,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return LazySrcLoc.nodeOffset(self.src_node);
-            }
         },
         @"break": struct {
             operand: Ref,
@@ -2339,10 +2314,6 @@ pub const Inst = struct {
             src_node: i32,
             /// The meaning of this operand depends on the corresponding `Tag`.
             inst: Index,
-
-            pub fn src(self: @This()) LazySrcLoc {
-                return LazySrcLoc.nodeOffset(self.src_node);
-            }
         },
         str_op: struct {
             /// Offset into `string_bytes`. Null-terminated.
@@ -2369,6 +2340,12 @@ pub const Inst = struct {
             operand: Ref,
             /// The index being accessed.
             idx: u32,
+        },
+        declaration: struct {
+            /// This node provides a new absolute baseline node for all instructions within this struct.
+            src_node: Ast.Node.Index,
+            /// index into extra to a `Declaration` payload.
+            payload_index: u32,
         },
 
         // Make sure we don't accidentally add a field to make this union
@@ -2408,6 +2385,7 @@ pub const Inst = struct {
             defer_err_code,
             save_err_ret_index,
             elem_val_imm,
+            declaration,
         };
     };
 
@@ -2624,9 +2602,7 @@ pub const Inst = struct {
         src_hash_3: u32,
         /// The name of this `Decl`. Also indicates whether it is a test, comptime block, etc.
         name: Name,
-        /// This Decl's line number relative to that of its parent.
-        /// TODO: column must be encoded similarly to respect non-formatted code!
-        line_offset: u32,
+        src_line: u32,
         flags: Flags,
 
         pub const Flags = packed struct(u32) {
@@ -2860,6 +2836,14 @@ pub const Inst = struct {
         index: u32,
     };
 
+    pub const Reify = struct {
+        /// This node is absolute, because `reify` instructions are tracked across updates, and
+        /// this simplifies the logic for getting source locations for types.
+        node: Ast.Node.Index,
+        operand: Ref,
+        src_line: u32,
+    };
+
     pub const SwitchBlockErrUnion = struct {
         operand: Ref,
         bits: Bits,
@@ -3018,11 +3002,9 @@ pub const Inst = struct {
         fields_hash_1: u32,
         fields_hash_2: u32,
         fields_hash_3: u32,
-        src_node: i32,
-
-        pub fn src(self: StructDecl) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
+        src_line: u32,
+        /// This node provides a new absolute baseline node for all instructions within this struct.
+        src_node: Ast.Node.Index,
 
         pub const Small = packed struct {
             has_captures_len: bool,
@@ -3150,11 +3132,9 @@ pub const Inst = struct {
         fields_hash_1: u32,
         fields_hash_2: u32,
         fields_hash_3: u32,
-        src_node: i32,
-
-        pub fn src(self: EnumDecl) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
+        src_line: u32,
+        /// This node provides a new absolute baseline node for all instructions within this struct.
+        src_node: Ast.Node.Index,
 
         pub const Small = packed struct {
             has_tag_type: bool,
@@ -3198,11 +3178,9 @@ pub const Inst = struct {
         fields_hash_1: u32,
         fields_hash_2: u32,
         fields_hash_3: u32,
-        src_node: i32,
-
-        pub fn src(self: UnionDecl) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
+        src_line: u32,
+        /// This node provides a new absolute baseline node for all instructions within this struct.
+        src_node: Ast.Node.Index,
 
         pub const Small = packed struct {
             has_tag_type: bool,
@@ -3230,11 +3208,9 @@ pub const Inst = struct {
     /// 2. capture: Capture, // for every captures_len
     /// 3. decl: Index, // for every decls_len; points to a `declaration` instruction
     pub const OpaqueDecl = struct {
-        src_node: i32,
-
-        pub fn src(self: OpaqueDecl) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
+        src_line: u32,
+        /// This node provides a new absolute baseline node for all instructions within this struct.
+        src_node: Ast.Node.Index,
 
         pub const Small = packed struct {
             has_captures_len: bool,
@@ -3352,10 +3328,6 @@ pub const Inst = struct {
         parent_ptr_type: Ref,
         field_name: Ref,
         field_ptr: Ref,
-
-        pub fn src(self: FieldParentPtr) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
     };
 
     pub const Shuffle = struct {
@@ -3505,10 +3477,6 @@ pub const Inst = struct {
         block: Ref,
         /// If `.none`, restore unconditionally.
         operand: Ref,
-
-        pub fn src(self: RestoreErrRetIndex) LazySrcLoc {
-            return LazySrcLoc.nodeOffset(self.src_node);
-        }
     };
 };
 
@@ -3772,6 +3740,7 @@ fn findDeclsInner(
                 .union_decl,
                 .enum_decl,
                 .opaque_decl,
+                .reify,
                 => return list.append(inst),
 
                 else => return,
@@ -3824,11 +3793,15 @@ fn findDeclsSwitch(
         break :blk multi_cases_len;
     } else 0;
 
+    if (extra.data.bits.any_has_tag_capture) {
+        extra_index += 1;
+    }
+
     const special_prong = extra.data.bits.specialProng();
     if (special_prong != .none) {
-        const body_len: u31 = @truncate(zir.extra[extra_index]);
+        const prong_info: Inst.SwitchBlock.ProngInfo = @bitCast(zir.extra[extra_index]);
         extra_index += 1;
-        const body = zir.bodySlice(extra_index, body_len);
+        const body = zir.bodySlice(extra_index, prong_info.body_len);
         extra_index += body.len;
 
         try zir.findDeclsBody(list, body);
@@ -3838,10 +3811,10 @@ fn findDeclsSwitch(
         const scalar_cases_len = extra.data.bits.scalar_cases_len;
         for (0..scalar_cases_len) |_| {
             extra_index += 1;
-            const body_len: u31 = @truncate(zir.extra[extra_index]);
+            const prong_info: Inst.SwitchBlock.ProngInfo = @bitCast(zir.extra[extra_index]);
             extra_index += 1;
-            const body = zir.bodySlice(extra_index, body_len);
-            extra_index += body_len;
+            const body = zir.bodySlice(extra_index, prong_info.body_len);
+            extra_index += body.len;
 
             try zir.findDeclsBody(list, body);
         }
@@ -3852,20 +3825,13 @@ fn findDeclsSwitch(
             extra_index += 1;
             const ranges_len = zir.extra[extra_index];
             extra_index += 1;
-            const body_len: u31 = @truncate(zir.extra[extra_index]);
+            const prong_info: Inst.SwitchBlock.ProngInfo = @bitCast(zir.extra[extra_index]);
             extra_index += 1;
-            const items = zir.refSlice(extra_index, items_len);
-            extra_index += items_len;
-            _ = items;
 
-            var range_i: usize = 0;
-            while (range_i < ranges_len) : (range_i += 1) {
-                extra_index += 1;
-                extra_index += 1;
-            }
+            extra_index += items_len + ranges_len * 2;
 
-            const body = zir.bodySlice(extra_index, body_len);
-            extra_index += body_len;
+            const body = zir.bodySlice(extra_index, prong_info.body_len);
+            extra_index += body.len;
 
             try zir.findDeclsBody(list, body);
         }
@@ -4046,7 +4012,7 @@ pub fn getFnInfo(zir: Zir, fn_inst: Inst.Index) FnInfo {
 
 pub fn getDeclaration(zir: Zir, inst: Zir.Inst.Index) struct { Inst.Declaration, u32 } {
     assert(zir.instructions.items(.tag)[@intFromEnum(inst)] == .declaration);
-    const pl_node = zir.instructions.items(.data)[@intFromEnum(inst)].pl_node;
+    const pl_node = zir.instructions.items(.data)[@intFromEnum(inst)].declaration;
     const extra = zir.extraData(Inst.Declaration, pl_node.payload_index);
     return .{
         extra.data,
@@ -4059,8 +4025,8 @@ pub fn getAssociatedSrcHash(zir: Zir, inst: Zir.Inst.Index) ?std.zig.SrcHash {
     const data = zir.instructions.items(.data);
     switch (tag[@intFromEnum(inst)]) {
         .declaration => {
-            const pl_node = data[@intFromEnum(inst)].pl_node;
-            const extra = zir.extraData(Inst.Declaration, pl_node.payload_index);
+            const declaration = data[@intFromEnum(inst)].declaration;
+            const extra = zir.extraData(Inst.Declaration, declaration.payload_index);
             return @bitCast([4]u32{
                 extra.data.src_hash_0,
                 extra.data.src_hash_1,

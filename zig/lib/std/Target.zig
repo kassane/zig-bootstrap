@@ -17,15 +17,12 @@ pub const Os = struct {
 
     pub const Tag = enum {
         freestanding,
-        ananas,
-        cloudabi,
         dragonfly,
         freebsd,
         fuchsia,
         ios,
-        kfreebsd,
         linux,
-        lv2,
+        ps3,
         macos,
         netbsd,
         openbsd,
@@ -36,7 +33,6 @@ pub const Os = struct {
         haiku,
         minix,
         rtems,
-        nacl,
         aix,
         cuda,
         nvcl,
@@ -65,6 +61,11 @@ pub const Os = struct {
         illumos,
         other,
 
+        // LLVM tags deliberately omitted:
+        // - kfreebsd
+        // - darwin
+        // - nacl
+
         pub inline fn isDarwin(tag: Tag) bool {
             return switch (tag) {
                 .ios, .macos, .watchos, .tvos, .visionos => true,
@@ -74,7 +75,7 @@ pub const Os = struct {
 
         pub inline fn isBSD(tag: Tag) bool {
             return tag.isDarwin() or switch (tag) {
-                .kfreebsd, .freebsd, .openbsd, .netbsd, .dragonfly => true,
+                .freebsd, .openbsd, .netbsd, .dragonfly => true,
                 else => false,
             };
         }
@@ -137,16 +138,12 @@ pub const Os = struct {
         pub inline fn getVersionRangeTag(tag: Tag) @typeInfo(TaggedVersionRange).Union.tag_type.? {
             return switch (tag) {
                 .freestanding,
-                .ananas,
-                .cloudabi,
                 .fuchsia,
-                .kfreebsd,
-                .lv2,
+                .ps3,
                 .zos,
                 .haiku,
                 .minix,
                 .rtems,
-                .nacl,
                 .aix,
                 .cuda,
                 .nvcl,
@@ -196,11 +193,12 @@ pub const Os = struct {
             return switch (tag) {
                 .linux => switch (arch) {
                     .arm, .armeb, .thumb, .thumbeb => "arm",
-                    .aarch64, .aarch64_be, .aarch64_32 => "aarch64",
+                    .aarch64, .aarch64_be => "aarch64",
+                    .loongarch32, .loongarch64 => "loongarch",
                     .mips, .mipsel, .mips64, .mips64el => "mips",
                     .powerpc, .powerpcle, .powerpc64, .powerpc64le => "powerpc",
                     .riscv32, .riscv64 => "riscv",
-                    .sparc, .sparcel, .sparc64 => "sparc",
+                    .sparc, .sparc64 => "sparc",
                     .x86, .x86_64 => "x86",
                     else => @tagName(arch),
                 },
@@ -231,10 +229,16 @@ pub const Os = struct {
         win10_vb = 0x0A000008, //aka win10_19h2
         win10_mn = 0x0A000009, //aka win10_20h1
         win10_fe = 0x0A00000A, //aka win10_20h2
+        win10_co = 0x0A00000B, //aka win10_21h1
+        win10_ni = 0x0A00000C, //aka win10_21h2
+        win10_cu = 0x0A00000D, //aka win10_22h2
+        win11_zn = 0x0A00000E, //aka win11_21h2
+        win11_ga = 0x0A00000F, //aka win11_22h2
+        win11_ge = 0x0A000010, //aka win11_23h2
         _,
 
         /// Latest Windows version that the Zig Standard Library is aware of
-        pub const latest = WindowsVersion.win10_fe;
+        pub const latest = WindowsVersion.win11_ge;
 
         /// Compared against build numbers reported by the runtime to distinguish win10 versions,
         /// where 0x0A000000 + index corresponds to the WindowsVersion u32 value.
@@ -250,6 +254,12 @@ pub const Os = struct {
             18363, //win10_vb aka win10_19h2
             19041, //win10_mn aka win10_20h1
             19042, //win10_fe aka win10_20h2
+            19043, //win10_co aka win10_21h1
+            19044, //win10_ni aka win10_21h2
+            19045, //win10_cu aka win10_22h2
+            22000, //win11_zn aka win11_21h2
+            22621, //win11_ga aka win11_22h2
+            22631, //win11_ge aka win11_23h2
         };
 
         /// Returns whether the first version `ver` is newer (greater) than or equal to the second version `ver`.
@@ -359,16 +369,12 @@ pub const Os = struct {
         pub fn default(tag: Tag, arch: Cpu.Arch) VersionRange {
             return switch (tag) {
                 .freestanding,
-                .ananas,
-                .cloudabi,
                 .fuchsia,
-                .kfreebsd,
-                .lv2,
+                .ps3,
                 .zos,
                 .haiku,
                 .minix,
                 .rtems,
-                .nacl,
                 .aix,
                 .cuda,
                 .nvcl,
@@ -548,15 +554,11 @@ pub const Os = struct {
             .linux,
             .windows,
             .freestanding,
-            .ananas,
-            .cloudabi,
             .fuchsia,
-            .kfreebsd,
-            .lv2,
+            .ps3,
             .zos,
             .minix,
             .rtems,
-            .nacl,
             .aix,
             .cuda,
             .nvcl,
@@ -616,13 +618,13 @@ pub const Abi = enum {
     gnueabi,
     gnueabihf,
     gnuf32,
-    gnuf64,
     gnusf,
     gnux32,
     gnuilp32,
     code16,
     eabi,
     eabihf,
+    ilp32,
     android,
     musl,
     musleabi,
@@ -631,7 +633,6 @@ pub const Abi = enum {
     msvc,
     itanium,
     cygnus,
-    coreclr,
     simulator,
     macabi,
     pixel,
@@ -651,17 +652,18 @@ pub const Abi = enum {
     amplification,
     ohos,
 
+    // LLVM tags deliberately omitted:
+    // - gnuf64
+    // - coreclr
+
     pub fn default(arch: Cpu.Arch, os: Os) Abi {
         return if (arch.isWasm()) .musl else switch (os.tag) {
             .freestanding,
-            .ananas,
-            .cloudabi,
             .dragonfly,
-            .lv2,
+            .ps3,
             .zos,
             .minix,
             .rtems,
-            .nacl,
             .aix,
             .cuda,
             .nvcl,
@@ -678,7 +680,6 @@ pub const Abi = enum {
             .openbsd,
             .freebsd,
             .fuchsia,
-            .kfreebsd,
             .netbsd,
             .hurd,
             .haiku,
@@ -710,7 +711,16 @@ pub const Abi = enum {
 
     pub inline fn isGnu(abi: Abi) bool {
         return switch (abi) {
-            .gnu, .gnuabin32, .gnuabi64, .gnueabi, .gnueabihf, .gnux32 => true,
+            .gnu,
+            .gnuabin32,
+            .gnuabi64,
+            .gnueabi,
+            .gnueabihf,
+            .gnuf32,
+            .gnusf,
+            .gnux32,
+            .gnuilp32,
+            => true,
             else => false,
         };
     }
@@ -974,7 +984,6 @@ pub const Cpu = struct {
         armeb,
         aarch64,
         aarch64_be,
-        aarch64_32,
         arc,
         avr,
         bpfel,
@@ -994,16 +1003,12 @@ pub const Cpu = struct {
         powerpcle,
         powerpc64,
         powerpc64le,
-        r600,
         amdgcn,
         riscv32,
         riscv64,
         sparc,
         sparc64,
-        sparcel,
         s390x,
-        tce,
-        tcele,
         thumb,
         thumbeb,
         x86,
@@ -1012,26 +1017,33 @@ pub const Cpu = struct {
         xtensa,
         nvptx,
         nvptx64,
-        le32,
-        le64,
-        amdil,
-        amdil64,
-        hsail,
-        hsail64,
-        spir,
-        spir64,
         spirv,
         spirv32,
         spirv64,
         kalimba,
-        shave,
         lanai,
         wasm32,
         wasm64,
-        renderscript32,
-        renderscript64,
         ve,
         spu_2,
+
+        // LLVM tags deliberately omitted:
+        // - aarch64_32
+        // - r600
+        // - sparcel
+        // - tce
+        // - tcele
+        // - le32
+        // - le64
+        // - amdil
+        // - amdil64
+        // - hsail
+        // - hsail64
+        // - spir
+        // - spir64
+        // - shave
+        // - renderscript32
+        // - renderscript64
 
         pub inline fn isX86(arch: Arch) bool {
             return switch (arch) {
@@ -1049,7 +1061,7 @@ pub const Cpu = struct {
 
         pub inline fn isAARCH64(arch: Arch) bool {
             return switch (arch) {
-                .aarch64, .aarch64_be, .aarch64_32 => true,
+                .aarch64, .aarch64_be => true,
                 else => false,
             };
         }
@@ -1102,7 +1114,7 @@ pub const Cpu = struct {
 
         pub inline fn isSPARC(arch: Arch) bool {
             return switch (arch) {
-                .sparc, .sparcel, .sparc64 => true,
+                .sparc, .sparc64 => true,
                 else => false,
             };
         }
@@ -1147,31 +1159,20 @@ pub const Cpu = struct {
                 .hexagon => .HEXAGON,
                 .dxil => .NONE,
                 .m68k => .@"68K",
-                .le32 => .NONE,
                 .mips => .MIPS,
                 .mipsel => .MIPS_RS3_LE,
                 .powerpc, .powerpcle => .PPC,
-                .r600 => .NONE,
                 .riscv32 => .RISCV,
                 .sparc => .SPARC,
-                .sparcel => .SPARC,
-                .tce => .NONE,
-                .tcele => .NONE,
                 .thumb => .ARM,
                 .thumbeb => .ARM,
                 .x86 => .@"386",
                 .xcore => .XCORE,
                 .xtensa => .XTENSA,
                 .nvptx => .NONE,
-                .amdil => .NONE,
-                .hsail => .NONE,
-                .spir => .NONE,
                 .kalimba => .CSR_KALIMBA,
-                .shave => .NONE,
                 .lanai => .LANAI,
                 .wasm32 => .NONE,
-                .renderscript32 => .NONE,
-                .aarch64_32 => .AARCH64,
                 .aarch64 => .AARCH64,
                 .aarch64_be => .AARCH64,
                 .mips64 => .MIPS,
@@ -1181,12 +1182,7 @@ pub const Cpu = struct {
                 .riscv64 => .RISCV,
                 .x86_64 => .X86_64,
                 .nvptx64 => .NONE,
-                .le64 => .NONE,
-                .amdil64 => .NONE,
-                .hsail64 => .NONE,
-                .spir64 => .NONE,
                 .wasm64 => .NONE,
-                .renderscript64 => .NONE,
                 .amdgcn => .AMDGPU,
                 .bpfel => .BPF,
                 .bpfeb => .BPF,
@@ -1198,8 +1194,8 @@ pub const Cpu = struct {
                 .spirv => .NONE,
                 .spirv32 => .NONE,
                 .spirv64 => .NONE,
-                .loongarch32 => .NONE,
-                .loongarch64 => .NONE,
+                .loongarch32 => .LOONGARCH,
+                .loongarch64 => .LOONGARCH,
             };
         }
 
@@ -1213,31 +1209,20 @@ pub const Cpu = struct {
                 .dxil => .Unknown,
                 .hexagon => .Unknown,
                 .m68k => .Unknown,
-                .le32 => .Unknown,
                 .mips => .Unknown,
                 .mipsel => .Unknown,
                 .powerpc, .powerpcle => .POWERPC,
-                .r600 => .Unknown,
                 .riscv32 => .RISCV32,
                 .sparc => .Unknown,
-                .sparcel => .Unknown,
-                .tce => .Unknown,
-                .tcele => .Unknown,
                 .thumb => .Thumb,
                 .thumbeb => .Thumb,
                 .x86 => .I386,
                 .xcore => .Unknown,
                 .xtensa => .Unknown,
                 .nvptx => .Unknown,
-                .amdil => .Unknown,
-                .hsail => .Unknown,
-                .spir => .Unknown,
                 .kalimba => .Unknown,
-                .shave => .Unknown,
                 .lanai => .Unknown,
                 .wasm32 => .Unknown,
-                .renderscript32 => .Unknown,
-                .aarch64_32 => .ARM64,
                 .aarch64 => .ARM64,
                 .aarch64_be => .ARM64,
                 .mips64 => .Unknown,
@@ -1247,12 +1232,7 @@ pub const Cpu = struct {
                 .riscv64 => .RISCV64,
                 .x86_64 => .X64,
                 .nvptx64 => .Unknown,
-                .le64 => .Unknown,
-                .amdil64 => .Unknown,
-                .hsail64 => .Unknown,
-                .spir64 => .Unknown,
                 .wasm64 => .Unknown,
-                .renderscript64 => .Unknown,
                 .amdgcn => .Unknown,
                 .bpfel => .Unknown,
                 .bpfeb => .Unknown,
@@ -1264,8 +1244,8 @@ pub const Cpu = struct {
                 .spirv => .Unknown,
                 .spirv32 => .Unknown,
                 .spirv64 => .Unknown,
-                .loongarch32 => .Unknown,
-                .loongarch64 => .Unknown,
+                .loongarch32 => .LOONGARCH32,
+                .loongarch64 => .LOONGARCH64,
             };
         }
 
@@ -1273,30 +1253,20 @@ pub const Cpu = struct {
             return switch (arch) {
                 .avr,
                 .arm,
-                .aarch64_32,
                 .aarch64,
                 .amdgcn,
-                .amdil,
-                .amdil64,
                 .bpfel,
                 .csky,
                 .xtensa,
                 .hexagon,
-                .hsail,
-                .hsail64,
                 .kalimba,
-                .le32,
-                .le64,
                 .mipsel,
                 .mips64el,
                 .msp430,
                 .nvptx,
                 .nvptx64,
-                .sparcel,
-                .tcele,
                 .powerpcle,
                 .powerpc64le,
-                .r600,
                 .riscv32,
                 .riscv64,
                 .x86,
@@ -1305,11 +1275,6 @@ pub const Cpu = struct {
                 .wasm64,
                 .xcore,
                 .thumb,
-                .spir,
-                .spir64,
-                .renderscript32,
-                .renderscript64,
-                .shave,
                 .ve,
                 .spu_2,
                 // GPU bitness is opaque. For now, assume little endian.
@@ -1333,7 +1298,6 @@ pub const Cpu = struct {
                 .thumbeb,
                 .sparc,
                 .sparc64,
-                .tce,
                 .lanai,
                 .s390x,
                 => .big,
@@ -1360,14 +1324,14 @@ pub const Cpu = struct {
         pub fn genericName(arch: Arch) [:0]const u8 {
             return switch (arch) {
                 .arm, .armeb, .thumb, .thumbeb => "arm",
-                .aarch64, .aarch64_be, .aarch64_32 => "aarch64",
+                .aarch64, .aarch64_be => "aarch64",
                 .bpfel, .bpfeb => "bpf",
                 .loongarch32, .loongarch64 => "loongarch",
                 .mips, .mipsel, .mips64, .mips64el => "mips",
                 .powerpc, .powerpcle, .powerpc64, .powerpc64le => "powerpc",
                 .amdgcn => "amdgpu",
                 .riscv32, .riscv64 => "riscv",
-                .sparc, .sparc64, .sparcel => "sparc",
+                .sparc, .sparc64 => "sparc",
                 .s390x => "s390x",
                 .x86, .x86_64 => "x86",
                 .nvptx, .nvptx64 => "nvptx",
@@ -1381,7 +1345,7 @@ pub const Cpu = struct {
         pub fn allFeaturesList(arch: Arch) []const Cpu.Feature {
             return switch (arch) {
                 .arm, .armeb, .thumb, .thumbeb => &arm.all_features,
-                .aarch64, .aarch64_be, .aarch64_32 => &aarch64.all_features,
+                .aarch64, .aarch64_be => &aarch64.all_features,
                 .arc => &arc.all_features,
                 .avr => &avr.all_features,
                 .bpfel, .bpfeb => &bpf.all_features,
@@ -1394,7 +1358,7 @@ pub const Cpu = struct {
                 .powerpc, .powerpcle, .powerpc64, .powerpc64le => &powerpc.all_features,
                 .amdgcn => &amdgpu.all_features,
                 .riscv32, .riscv64 => &riscv.all_features,
-                .sparc, .sparc64, .sparcel => &sparc.all_features,
+                .sparc, .sparc64 => &sparc.all_features,
                 .spirv32, .spirv64 => &spirv.all_features,
                 .s390x => &s390x.all_features,
                 .x86, .x86_64 => &x86.all_features,
@@ -1412,7 +1376,7 @@ pub const Cpu = struct {
             return switch (arch) {
                 .arc => comptime allCpusFromDecls(arc.cpu),
                 .arm, .armeb, .thumb, .thumbeb => comptime allCpusFromDecls(arm.cpu),
-                .aarch64, .aarch64_be, .aarch64_32 => comptime allCpusFromDecls(aarch64.cpu),
+                .aarch64, .aarch64_be => comptime allCpusFromDecls(aarch64.cpu),
                 .avr => comptime allCpusFromDecls(avr.cpu),
                 .bpfel, .bpfeb => comptime allCpusFromDecls(bpf.cpu),
                 .csky => comptime allCpusFromDecls(csky.cpu),
@@ -1424,7 +1388,7 @@ pub const Cpu = struct {
                 .powerpc, .powerpcle, .powerpc64, .powerpc64le => comptime allCpusFromDecls(powerpc.cpu),
                 .amdgcn => comptime allCpusFromDecls(amdgpu.cpu),
                 .riscv32, .riscv64 => comptime allCpusFromDecls(riscv.cpu),
-                .sparc, .sparc64, .sparcel => comptime allCpusFromDecls(sparc.cpu),
+                .sparc, .sparc64 => comptime allCpusFromDecls(sparc.cpu),
                 .spirv32, .spirv64 => comptime allCpusFromDecls(spirv.cpu),
                 .s390x => comptime allCpusFromDecls(s390x.cpu),
                 .x86, .x86_64 => comptime allCpusFromDecls(x86.cpu),
@@ -1498,7 +1462,7 @@ pub const Cpu = struct {
             };
             return switch (arch) {
                 .arm, .armeb, .thumb, .thumbeb => &arm.cpu.generic,
-                .aarch64, .aarch64_be, .aarch64_32 => &aarch64.cpu.generic,
+                .aarch64, .aarch64_be => &aarch64.cpu.generic,
                 .avr => &avr.cpu.avr2,
                 .bpfel, .bpfeb => &bpf.cpu.generic,
                 .hexagon => &hexagon.cpu.generic,
@@ -1516,7 +1480,7 @@ pub const Cpu = struct {
                 .riscv32 => &riscv.cpu.generic_rv32,
                 .riscv64 => &riscv.cpu.generic_rv64,
                 .spirv32, .spirv64 => &spirv.cpu.generic,
-                .sparc, .sparcel => &sparc.cpu.generic,
+                .sparc => &sparc.cpu.generic,
                 .sparc64 => &sparc.cpu.v9, // 64-bit SPARC needs v9 as the baseline
                 .s390x => &s390x.cpu.generic,
                 .x86 => &x86.cpu.i386,
@@ -1532,11 +1496,13 @@ pub const Cpu = struct {
         pub fn baseline(arch: Arch) *const Model {
             return switch (arch) {
                 .arm, .armeb, .thumb, .thumbeb => &arm.cpu.baseline,
+                .hexagon => &hexagon.cpu.hexagonv60,
                 .riscv32 => &riscv.cpu.baseline_rv32,
                 .riscv64 => &riscv.cpu.baseline_rv64,
                 .x86 => &x86.cpu.pentium4,
                 .nvptx, .nvptx64 => &nvptx.cpu.sm_20,
-                .sparc, .sparcel => &sparc.cpu.v8,
+                .s390x => &s390x.cpu.arch8,
+                .sparc => &sparc.cpu.v8,
                 .loongarch64 => &loongarch.cpu.loongarch64,
 
                 else => generic(arch),
@@ -1721,12 +1687,10 @@ pub const DynamicLinker = struct {
             .linux => switch (cpu.arch) {
                 .x86,
                 .sparc,
-                .sparcel,
                 => init("/lib/ld-linux.so.2"),
 
                 .aarch64 => init("/lib/ld-linux-aarch64.so.1"),
                 .aarch64_be => init("/lib/ld-linux-aarch64_be.so.1"),
-                .aarch64_32 => init("/lib/ld-linux-aarch64_32.so.1"),
 
                 .arm,
                 .armeb,
@@ -1736,6 +1700,8 @@ pub const DynamicLinker = struct {
                     .hard => "-armhf",
                     else => "",
                 }}) catch unreachable,
+
+                .loongarch64 => init("/lib64/ld-linux-loongarch-lp64d.so.1"),
 
                 .mips,
                 .mipsel,
@@ -1787,28 +1753,13 @@ pub const DynamicLinker = struct {
                 .hexagon,
                 .m68k,
                 .msp430,
-                .r600,
                 .amdgcn,
-                .tce,
-                .tcele,
                 .xcore,
-                .le32,
-                .le64,
-                .amdil,
-                .amdil64,
-                .hsail,
-                .hsail64,
-                .spir,
-                .spir64,
                 .kalimba,
-                .shave,
                 .lanai,
-                .renderscript32,
-                .renderscript64,
                 .ve,
                 .dxil,
                 .loongarch32,
-                .loongarch64,
                 .xtensa,
                 => none,
             },
@@ -1819,6 +1770,8 @@ pub const DynamicLinker = struct {
             .macos,
             .visionos,
             => init("/usr/lib/dyld"),
+
+            .serenity => init("/usr/lib/Loader.so"),
 
             // Operating systems in this list have been verified as not having a standard
             // dynamic linker path.
@@ -1832,7 +1785,6 @@ pub const DynamicLinker = struct {
             .vulkan,
             .other,
             .plan9,
-            .serenity,
             => none,
 
             // TODO revisit when multi-arch for Haiku is available
@@ -1840,15 +1792,11 @@ pub const DynamicLinker = struct {
 
             // TODO go over each item in this list and either move it to the above list, or
             // implement the standard dynamic linker path code for it.
-            .ananas,
-            .cloudabi,
             .fuchsia,
-            .kfreebsd,
-            .lv2,
+            .ps3,
             .zos,
             .minix,
             .rtems,
-            .nacl,
             .aix,
             .cuda,
             .nvcl,
@@ -1875,7 +1823,7 @@ pub fn standardDynamicLinkerPath(target: Target) DynamicLinker {
 
 pub fn ptrBitWidth_cpu_abi(cpu: Cpu, abi: Abi) u16 {
     switch (abi) {
-        .gnux32, .muslx32, .gnuabin32, .gnuilp32 => return 32,
+        .gnux32, .muslx32, .gnuabin32, .gnuilp32, .ilp32 => return 32,
         .gnuabi64 => return 64,
         else => {},
     }
@@ -1891,30 +1839,19 @@ pub fn ptrBitWidth_cpu_abi(cpu: Cpu, abi: Abi) u16 {
         .csky,
         .hexagon,
         .m68k,
-        .le32,
         .mips,
         .mipsel,
         .powerpc,
         .powerpcle,
-        .r600,
         .riscv32,
-        .sparcel,
-        .tce,
-        .tcele,
         .thumb,
         .thumbeb,
         .x86,
         .xcore,
         .nvptx,
-        .amdil,
-        .hsail,
-        .spir,
         .kalimba,
-        .shave,
         .lanai,
         .wasm32,
-        .renderscript32,
-        .aarch64_32,
         .spirv32,
         .loongarch32,
         .dxil,
@@ -1930,12 +1867,7 @@ pub fn ptrBitWidth_cpu_abi(cpu: Cpu, abi: Abi) u16 {
         .riscv64,
         .x86_64,
         .nvptx64,
-        .le64,
-        .amdil64,
-        .hsail64,
-        .spir64,
         .wasm64,
-        .renderscript64,
         .amdgcn,
         .bpfel,
         .bpfeb,
@@ -1971,16 +1903,13 @@ pub fn stackAlignment(target: Target) u16 {
         .mips,
         .mipsel,
         .sparc,
-        .sparcel,
         => 8,
         .aarch64,
         .aarch64_be,
-        .aarch64_32,
         .bpfeb,
         .bpfel,
         .mips64,
         .mips64el,
-        .riscv32,
         .riscv64,
         .sparc64,
         .x86_64,
@@ -1989,6 +1918,8 @@ pub fn stackAlignment(target: Target) u16 {
         .wasm64,
         .loongarch64,
         => 16,
+        .riscv32,
+        => if (Target.riscv.featureSetHas(target.cpu.features, .e)) 4 else 16,
         .powerpc64,
         .powerpc64le,
         => switch (target.os.tag) {
@@ -2005,7 +1936,6 @@ pub fn stackAlignment(target: Target) u16 {
 pub fn charSignedness(target: Target) std.builtin.Signedness {
     switch (target.cpu.arch) {
         .aarch64,
-        .aarch64_32,
         .aarch64_be,
         .arm,
         .armeb,
@@ -2082,12 +2012,6 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                 .long, .ulong, .float, .double, .longdouble => return 32,
                 .longlong, .ulonglong => return 64,
             },
-            .tce, .tcele => switch (c_type) {
-                .char => return 8,
-                .short, .ushort => return 16,
-                .int, .uint, .long, .ulong, .longlong, .ulonglong => return 32,
-                .float, .double, .longdouble => return 32,
-            },
             .mips64, .mips64el => switch (c_type) {
                 .char => return 8,
                 .short, .ushort => return 16,
@@ -2136,13 +2060,13 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                     .riscv64,
                     .aarch64,
                     .aarch64_be,
-                    .aarch64_32,
                     .s390x,
                     .sparc,
                     .sparc64,
-                    .sparcel,
                     .wasm32,
                     .wasm64,
+                    .loongarch32,
+                    .loongarch64,
                     => return 128,
 
                     else => return 64,
@@ -2161,9 +2085,9 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
         .solaris,
         .illumos,
         .haiku,
-        .ananas,
         .fuchsia,
         .minix,
+        .serenity,
         => switch (target.cpu.arch) {
             .msp430 => switch (c_type) {
                 .char => return 8,
@@ -2176,12 +2100,6 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                 .short, .ushort, .int, .uint => return 16,
                 .long, .ulong, .float, .double, .longdouble => return 32,
                 .longlong, .ulonglong => return 64,
-            },
-            .tce, .tcele => switch (c_type) {
-                .char => return 8,
-                .short, .ushort => return 16,
-                .int, .uint, .long, .ulong, .longlong, .ulonglong => return 32,
-                .float, .double, .longdouble => return 32,
             },
             .mips64, .mips64el => switch (c_type) {
                 .char => return 8,
@@ -2246,15 +2164,15 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                     .riscv64,
                     .aarch64,
                     .aarch64_be,
-                    .aarch64_32,
                     .s390x,
                     .mips64,
                     .mips64el,
                     .sparc,
                     .sparc64,
-                    .sparcel,
                     .wasm32,
                     .wasm64,
+                    .loongarch32,
+                    .loongarch64,
                     => return 128,
 
                     else => return 64,
@@ -2270,7 +2188,7 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                 .long, .ulong => return 32,
                 .longlong, .ulonglong, .double => return 64,
                 .longdouble => switch (target.abi) {
-                    .gnu, .gnuilp32, .cygnus => return 80,
+                    .gnu, .gnuilp32, .ilp32, .cygnus => return 80,
                     else => return 64,
                 },
             },
@@ -2284,7 +2202,7 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
                 },
                 .longlong, .ulonglong, .double => return 64,
                 .longdouble => switch (target.abi) {
-                    .gnu, .gnuilp32, .cygnus => return 80,
+                    .gnu, .gnuilp32, .ilp32, .cygnus => return 80,
                     else => return 64,
                 },
             },
@@ -2303,7 +2221,7 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
             .short, .ushort => return 16,
             .int, .uint, .float => return 32,
             .long, .ulong => switch (target.cpu.arch) {
-                .x86, .arm, .aarch64_32 => return 32,
+                .x86, .arm => return 32,
                 .x86_64 => switch (target.abi) {
                     .gnux32, .muslx32 => return 32,
                     else => return 64,
@@ -2362,12 +2280,9 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
             .longdouble => return 80,
         },
 
-        .cloudabi,
-        .kfreebsd,
-        .lv2,
+        .ps3,
         .zos,
         .rtems,
-        .nacl,
         .aix,
         .elfiamcu,
         .mesa3d,
@@ -2378,7 +2293,6 @@ pub fn c_type_bit_size(target: Target, c_type: CType) u16 {
         .driverkit,
         .shadermodel,
         .liteos,
-        .serenity,
         => @panic("TODO specify the C integer and float type sizes for this OS"),
     }
 }
@@ -2391,7 +2305,7 @@ pub fn c_type_alignment(target: Target, c_type: CType) u16 {
             .windows, .uefi => switch (c_type) {
                 .longlong, .ulonglong, .double => return 8,
                 .longdouble => switch (target.abi) {
-                    .gnu, .gnuilp32, .cygnus => return 4,
+                    .gnu, .gnuilp32, .ilp32, .cygnus => return 4,
                     else => return 8,
                 },
                 else => {},
@@ -2432,44 +2346,28 @@ pub fn c_type_alignment(target: Target, c_type: CType) u16 {
             .xcore,
             .dxil,
             .loongarch32,
-            .tce,
-            .tcele,
-            .le32,
-            .amdil,
-            .hsail,
-            .spir,
             .spirv32,
             .kalimba,
-            .shave,
-            .renderscript32,
             .ve,
             .spu_2,
             .xtensa,
             => 4,
 
-            .aarch64_32,
             .amdgcn,
-            .amdil64,
             .bpfel,
             .bpfeb,
             .hexagon,
-            .hsail64,
             .loongarch64,
             .m68k,
             .mips,
             .mipsel,
             .sparc,
-            .sparcel,
             .sparc64,
             .lanai,
-            .le64,
             .nvptx,
             .nvptx64,
-            .r600,
             .s390x,
-            .spir64,
             .spirv64,
-            .renderscript64,
             => 8,
 
             .aarch64,
@@ -2530,7 +2428,7 @@ pub fn c_type_preferred_alignment(target: Target, c_type: CType) u16 {
         .x86 => switch (target.os.tag) {
             .windows, .uefi => switch (c_type) {
                 .longdouble => switch (target.abi) {
-                    .gnu, .gnuilp32, .cygnus => return 4,
+                    .gnu, .gnuilp32, .ilp32, .cygnus => return 4,
                     else => return 8,
                 },
                 else => {},
@@ -2553,16 +2451,8 @@ pub fn c_type_preferred_alignment(target: Target, c_type: CType) u16 {
             .xcore,
             .dxil,
             .loongarch32,
-            .tce,
-            .tcele,
-            .le32,
-            .amdil,
-            .hsail,
-            .spir,
             .spirv32,
             .kalimba,
-            .shave,
-            .renderscript32,
             .ve,
             .spu_2,
             .xtensa,
@@ -2574,30 +2464,22 @@ pub fn c_type_preferred_alignment(target: Target, c_type: CType) u16 {
             .avr,
             .thumb,
             .thumbeb,
-            .aarch64_32,
             .amdgcn,
-            .amdil64,
             .bpfel,
             .bpfeb,
             .hexagon,
-            .hsail64,
             .x86,
             .loongarch64,
             .m68k,
             .mips,
             .mipsel,
             .sparc,
-            .sparcel,
             .sparc64,
             .lanai,
-            .le64,
             .nvptx,
             .nvptx64,
-            .r600,
             .s390x,
-            .spir64,
             .spirv64,
-            .renderscript64,
             => 8,
 
             .aarch64,

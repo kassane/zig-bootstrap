@@ -35,7 +35,7 @@ if "%VSCMD_ARG_HOST_ARCH%"=="x86" set OUTDIR=out-win-x86
 
 set ROOTDIR=%~dp0
 set "ROOTDIR_CMAKE=%ROOTDIR:\=/%"
-set ZIG_VERSION=0.12.0-dev.xtensa.2858+8e52bb152
+set ZIG_VERSION=0.14.0-dev.xtensa.745+c2683125b
 
 set JOBS_ARG=
 
