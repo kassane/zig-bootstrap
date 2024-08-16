@@ -98,14 +98,16 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         => return false,
 
         .coff,
-        .elf,
-        .macho,
-        .wasm,
-        .spirv,
-        .hex,
-        .raw,
-        .nvptx,
         .dxcontainer,
+        .elf,
+        .goff,
+        .hex,
+        .macho,
+        .nvptx,
+        .spirv,
+        .raw,
+        .wasm,
+        .xcoff,
         => {},
     }
 
@@ -119,7 +121,6 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         .bpfel,
         .bpfeb,
         .csky,
-        .dxil,
         .hexagon,
         .loongarch32,
         .loongarch64,
@@ -147,17 +148,23 @@ pub fn hasLlvmSupport(target: std.Target, ofmt: std.Target.ObjectFormat) bool {
         .xtensa,
         .nvptx,
         .nvptx64,
-        .spirv,
-        .spirv32,
-        .spirv64,
-        .kalimba,
         .lanai,
         .wasm32,
         .wasm64,
         .ve,
         => true,
 
-        .spu_2 => false,
+        // An LLVM backend exists but we don't currently support using it.
+        .dxil,
+        .spirv,
+        .spirv32,
+        .spirv64,
+        => false,
+
+        // No LLVM backend exists.
+        .kalimba,
+        .spu_2,
+        => false,
     };
 }
 
@@ -189,7 +196,7 @@ pub fn supportsStackProtector(target: std.Target, backend: std.builtin.CompilerB
         else => {},
     }
     switch (target.cpu.arch) {
-        .spirv32, .spirv64 => return false,
+        .spirv, .spirv32, .spirv64 => return false,
         else => {},
     }
     return switch (backend) {
@@ -200,7 +207,7 @@ pub fn supportsStackProtector(target: std.Target, backend: std.builtin.CompilerB
 
 pub fn clangSupportsStackProtector(target: std.Target) bool {
     return switch (target.cpu.arch) {
-        .spirv32, .spirv64 => return false,
+        .spirv, .spirv32, .spirv64 => return false,
         else => true,
     };
 }
@@ -213,7 +220,7 @@ pub fn supportsReturnAddress(target: std.Target) bool {
     return switch (target.cpu.arch) {
         .wasm32, .wasm64 => target.os.tag == .emscripten,
         .bpfel, .bpfeb => false,
-        .spirv32, .spirv64 => false,
+        .spirv, .spirv32, .spirv64 => false,
         else => true,
     };
 }
@@ -369,7 +376,6 @@ pub fn addrSpaceCastIsValid(
 
 pub fn llvmMachineAbi(target: std.Target) ?[:0]const u8 {
     const have_float = switch (target.abi) {
-        .gnuilp32 => return "ilp32",
         .gnueabihf, .musleabihf, .eabihf => true,
         else => false,
     };

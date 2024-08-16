@@ -49,17 +49,17 @@ pub fn emitMir(emit: *Emit) Error!void {
                         .Lib => emit.lower.link_mode == .static,
                     };
 
-                    const elf_file = emit.bin_file.cast(link.File.Elf).?;
+                    const elf_file = emit.bin_file.cast(.elf).?;
+                    const zo = elf_file.zigObjectPtr().?;
 
-                    const atom_ptr = elf_file.symbol(symbol.atom_index).atom(elf_file).?;
-                    const sym_index = elf_file.zigObjectPtr().?.symbol(symbol.sym_index);
-                    const sym = elf_file.symbol(sym_index);
+                    const atom_ptr = zo.symbol(symbol.atom_index).atom(elf_file).?;
+                    const sym = zo.symbol(symbol.sym_index);
 
                     var hi_r_type: u32 = @intFromEnum(std.elf.R_RISCV.HI20);
                     var lo_r_type: u32 = @intFromEnum(std.elf.R_RISCV.LO12_I);
 
                     if (sym.flags.needs_zig_got and !is_obj_or_static_lib) {
-                        _ = try sym.getOrCreateZigGotEntry(sym_index, elf_file);
+                        _ = try sym.getOrCreateZigGotEntry(symbol.sym_index, elf_file);
 
                         hi_r_type = Elf.R_ZIG_GOT_HI20;
                         lo_r_type = Elf.R_ZIG_GOT_LO12;
@@ -81,9 +81,10 @@ pub fn emitMir(emit: *Emit) Error!void {
                     });
                 },
                 .load_tlv_reloc => |symbol| {
-                    const elf_file = emit.bin_file.cast(link.File.Elf).?;
+                    const elf_file = emit.bin_file.cast(.elf).?;
+                    const zo = elf_file.zigObjectPtr().?;
 
-                    const atom_ptr = elf_file.symbol(symbol.atom_index).atom(elf_file).?;
+                    const atom_ptr = zo.symbol(symbol.atom_index).atom(elf_file).?;
 
                     const R_RISCV = std.elf.R_RISCV;
 
@@ -106,8 +107,9 @@ pub fn emitMir(emit: *Emit) Error!void {
                     });
                 },
                 .call_extern_fn_reloc => |symbol| {
-                    const elf_file = emit.bin_file.cast(link.File.Elf).?;
-                    const atom_ptr = elf_file.symbol(symbol.atom_index).atom(elf_file).?;
+                    const elf_file = emit.bin_file.cast(.elf).?;
+                    const zo = elf_file.zigObjectPtr().?;
+                    const atom_ptr = zo.symbol(symbol.atom_index).atom(elf_file).?;
 
                     const r_type: u32 = @intFromEnum(std.elf.R_RISCV.CALL_PLT);
 

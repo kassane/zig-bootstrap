@@ -88,6 +88,7 @@ pub const Feature = enum {
     xcvmac,
     xcvmem,
     xcvsimd,
+    xesppie,
     xsfvcp,
     xsfvfnrclipxfqf,
     xsfvfwmaccqqq,
@@ -194,10 +195,10 @@ pub const Feature = enum {
     zvl8192b,
 };
 
-pub const featureSet = CpuFeature.feature_set_fns(Feature).featureSet;
-pub const featureSetHas = CpuFeature.feature_set_fns(Feature).featureSetHas;
-pub const featureSetHasAny = CpuFeature.feature_set_fns(Feature).featureSetHasAny;
-pub const featureSetHasAll = CpuFeature.feature_set_fns(Feature).featureSetHasAll;
+pub const featureSet = CpuFeature.FeatureSetFns(Feature).featureSet;
+pub const featureSetHas = CpuFeature.FeatureSetFns(Feature).featureSetHas;
+pub const featureSetHasAny = CpuFeature.FeatureSetFns(Feature).featureSetHasAny;
+pub const featureSetHasAll = CpuFeature.FeatureSetFns(Feature).featureSetHasAll;
 
 pub const all_features = blk: {
     const len = @typeInfo(Feature).Enum.fields.len;
@@ -635,6 +636,11 @@ pub const all_features = blk: {
     result[@intFromEnum(Feature.xcvsimd)] = .{
         .llvm_name = "xcvsimd",
         .description = "'XCVsimd' (CORE-V SIMD ALU)",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.xesppie)] = .{
+        .llvm_name = "xesppie",
+        .description = "'Espressif ESP32P4'",
         .dependencies = featureSet(&[_]Feature{}),
     };
     result[@intFromEnum(Feature.xsfvcp)] = .{
@@ -1318,6 +1324,22 @@ pub const cpu = struct {
             .c,
             .d,
             .m,
+        }),
+    };
+    pub const esp32p4 = CpuModel{
+        .name = "esp32p4",
+        .llvm_name = "esp32p4",
+        .features = featureSet(&[_]Feature{
+            .@"32bit",
+            .a,
+            .c,
+            .f,
+            .m,
+            .xesppie,
+            .zcb,
+            .zcmp,
+            .zcmt,
+            .zifencei,
         }),
     };
     pub const generic = CpuModel{
