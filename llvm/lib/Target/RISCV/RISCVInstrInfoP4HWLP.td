@@ -41,7 +41,7 @@ def ESP_LP_SETUPI: Esp32P4Inst<(outs), (ins uimm1:$id, uimm12:$count, uimm10_ste
   let Inst{0} = 1;
 }
 
-def ESP_LP_SETUP: Esp32P4Inst<(outs), (ins uimm1:$id, GPRPIE:$rs1, uimm13_step4:$offset),
+def ESP_LP_SETUP: Esp32P4Inst<(outs), (ins uimm1:$id, GPR:$rs1, uimm13_step4:$offset),
                    "esp.lp.setup\t $id, $rs1, $offset", []> 
 {
   bits<1> id;
@@ -145,7 +145,7 @@ def ESP_LP_COUNTI: Esp32P4Inst<(outs), (ins uimm1:$id, uimm12:$count),
   let Inst{0} = 1;
 }
 
-def ESP_LP_COUNT: Esp32P4Inst<(outs), (ins uimm1:$id, GPRPIE:$rs1),
+def ESP_LP_COUNT: Esp32P4Inst<(outs), (ins uimm1:$id, GPR:$rs1),
                    "esp.lp.count\t $id, $rs1", []> 
 {
   bits<1> id;
@@ -156,7 +156,7 @@ def ESP_LP_COUNT: Esp32P4Inst<(outs), (ins uimm1:$id, GPRPIE:$rs1),
   let hasSideEffects = 1;
   
   let Inst{31-20} = 0xb000000000000;
-  let Inst{19-15} = 0xb00000;
+  let Inst{19-15} = rs1{4-0};
   let Inst{14} = 0;
   let Inst{13} = 1;
   let Inst{12} = 0;

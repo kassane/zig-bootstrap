@@ -154,7 +154,7 @@ pub const Os = struct {
             };
         }
 
-        pub inline fn getVersionRangeTag(tag: Tag) @typeInfo(TaggedVersionRange).Union.tag_type.? {
+        pub inline fn getVersionRangeTag(tag: Tag) @typeInfo(TaggedVersionRange).@"union".tag_type.? {
             return switch (tag) {
                 .freestanding,
                 .fuchsia,
@@ -765,12 +765,13 @@ pub const Abi = enum {
 
     pub inline fn floatAbi(abi: Abi) FloatAbi {
         return switch (abi) {
-            .gnueabihf,
-            .eabihf,
-            .musleabihf,
-            => .hard,
-            .ohos => .soft,
-            else => .soft,
+            .eabi,
+            .gnueabi,
+            .musleabi,
+            .gnusf,
+            .ohos,
+            => .soft,
+            else => .hard,
         };
     }
 };
@@ -846,7 +847,7 @@ pub fn toElfMachine(target: Target) std.elf.EM {
         .avr => .AVR,
         .bpfel, .bpfeb => .BPF,
         .csky => .CSKY,
-        .hexagon => .HEXAGON,
+        .hexagon => .QDSP6,
         .kalimba => .CSR_KALIMBA,
         .lanai => .LANAI,
         .loongarch32, .loongarch64 => .LOONGARCH,
@@ -1458,7 +1459,7 @@ pub const Cpu = struct {
 
         fn allCpusFromDecls(comptime cpus: type) []const *const Cpu.Model {
             @setEvalBranchQuota(2000);
-            const decls = @typeInfo(cpus).Struct.decls;
+            const decls = @typeInfo(cpus).@"struct".decls;
             var array: [decls.len]*const Cpu.Model = undefined;
             for (decls, 0..) |decl, i| {
                 array[i] = &@field(cpus, decl.name);
@@ -1645,7 +1646,7 @@ pub const FloatAbi = enum {
     soft,
 };
 
-pub inline fn getFloatAbi(target: Target) FloatAbi {
+pub inline fn floatAbi(target: Target) FloatAbi {
     return target.abi.floatAbi();
 }
 

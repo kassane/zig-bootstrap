@@ -17,6 +17,7 @@ pub const TranslateCContext = @import("src/TranslateC.zig");
 pub const RunTranslatedCContext = @import("src/RunTranslatedC.zig");
 pub const CompareOutputContext = @import("src/CompareOutput.zig");
 pub const StackTracesContext = @import("src/StackTrace.zig");
+pub const DebuggerContext = @import("src/Debugger.zig");
 
 const TestTarget = struct {
     target: std.Target.Query = .{},
@@ -290,23 +291,49 @@ const test_targets = blk: {
         },
 
         .{
-            .target = std.Target.Query.parse(.{
-                .arch_os_abi = "arm-linux-none",
-                .cpu_features = "generic+v8a",
-            }) catch unreachable,
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .eabi,
+            },
         },
         .{
-            .target = std.Target.Query.parse(.{
-                .arch_os_abi = "arm-linux-musleabihf",
-                .cpu_features = "generic+v8a",
-            }) catch unreachable,
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .eabihf,
+            },
+        },
+        .{
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .musleabi,
+            },
             .link_libc = true,
         },
         .{
-            .target = std.Target.Query.parse(.{
-                .arch_os_abi = "arm-linux-gnueabihf",
-                .cpu_features = "generic+v8a",
-            }) catch unreachable,
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .musleabihf,
+            },
+            .link_libc = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .gnueabi,
+            },
+            .link_libc = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .arm,
+                .os_tag = .linux,
+                .abi = .gnueabihf,
+            },
             .link_libc = true,
         },
 
@@ -314,7 +341,7 @@ const test_targets = blk: {
             .target = .{
                 .cpu_arch = .mips,
                 .os_tag = .linux,
-                .abi = .none,
+                .abi = .eabi,
             },
             .slow_backend = true,
         },
@@ -322,7 +349,33 @@ const test_targets = blk: {
             .target = .{
                 .cpu_arch = .mips,
                 .os_tag = .linux,
-                .abi = .musl,
+                .abi = .eabihf,
+            },
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips,
+                .os_tag = .linux,
+                .abi = .musleabi,
+            },
+            .link_libc = true,
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips,
+                .os_tag = .linux,
+                .abi = .musleabihf,
+            },
+            .link_libc = true,
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips,
+                .os_tag = .linux,
+                .abi = .gnueabi,
             },
             .link_libc = true,
             .slow_backend = true,
@@ -341,7 +394,7 @@ const test_targets = blk: {
             .target = .{
                 .cpu_arch = .mipsel,
                 .os_tag = .linux,
-                .abi = .none,
+                .abi = .eabi,
             },
             .slow_backend = true,
         },
@@ -349,7 +402,33 @@ const test_targets = blk: {
             .target = .{
                 .cpu_arch = .mipsel,
                 .os_tag = .linux,
-                .abi = .musl,
+                .abi = .eabihf,
+            },
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mipsel,
+                .os_tag = .linux,
+                .abi = .musleabi,
+            },
+            .link_libc = true,
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mipsel,
+                .os_tag = .linux,
+                .abi = .musleabihf,
+            },
+            .link_libc = true,
+            .slow_backend = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mipsel,
+                .os_tag = .linux,
+                .abi = .gnueabi,
             },
             .link_libc = true,
             .slow_backend = true,
@@ -366,16 +445,79 @@ const test_targets = blk: {
 
         .{
             .target = .{
-                .cpu_arch = .powerpc,
+                .cpu_arch = .mips64,
                 .os_tag = .linux,
                 .abi = .none,
             },
         },
         .{
             .target = .{
-                .cpu_arch = .powerpc,
+                .cpu_arch = .mips64,
                 .os_tag = .linux,
                 .abi = .musl,
+            },
+            .link_libc = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips64,
+                .os_tag = .linux,
+                .abi = .gnuabi64,
+            },
+            .link_libc = true,
+        },
+
+        .{
+            .target = .{
+                .cpu_arch = .mips64el,
+                .os_tag = .linux,
+                .abi = .none,
+            },
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips64el,
+                .os_tag = .linux,
+                .abi = .musl,
+            },
+            .link_libc = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .mips64el,
+                .os_tag = .linux,
+                .abi = .gnuabi64,
+            },
+            .link_libc = true,
+        },
+
+        .{
+            .target = .{
+                .cpu_arch = .powerpc,
+                .os_tag = .linux,
+                .abi = .eabi,
+            },
+        },
+        .{
+            .target = .{
+                .cpu_arch = .powerpc,
+                .os_tag = .linux,
+                .abi = .eabihf,
+            },
+        },
+        .{
+            .target = .{
+                .cpu_arch = .powerpc,
+                .os_tag = .linux,
+                .abi = .musleabi,
+            },
+            .link_libc = true,
+        },
+        .{
+            .target = .{
+                .cpu_arch = .powerpc,
+                .os_tag = .linux,
+                .abi = .musleabihf,
             },
             .link_libc = true,
         },
@@ -389,6 +531,30 @@ const test_targets = blk: {
         //    .link_libc = true,
         //},
 
+        .{
+            .target = .{
+                .cpu_arch = .powerpc64,
+                .os_tag = .linux,
+                .abi = .none,
+            },
+        },
+        .{
+            .target = .{
+                .cpu_arch = .powerpc64,
+                .os_tag = .linux,
+                .abi = .musl,
+            },
+            .link_libc = true,
+        },
+        // Requires ELFv1 linker support.
+        // .{
+        //     .target = .{
+        //         .cpu_arch = .powerpc64,
+        //         .os_tag = .linux,
+        //         .abi = .gnu,
+        //     },
+        //     .link_libc = true,
+        // },
         .{
             .target = .{
                 .cpu_arch = .powerpc64le,
@@ -588,7 +754,7 @@ const c_abi_targets = [_]CAbiTarget{
         .target = .{
             .cpu_arch = .mips,
             .os_tag = .linux,
-            .abi = .musl,
+            .abi = .musleabihf,
         },
     },
     .{
@@ -609,7 +775,7 @@ const c_abi_targets = [_]CAbiTarget{
         .target = .{
             .cpu_arch = .powerpc,
             .os_tag = .linux,
-            .abi = .musl,
+            .abi = .musleabihf,
         },
     },
     .{
@@ -1282,4 +1448,37 @@ pub fn addCases(
         parent_step,
         test_filters,
     );
+}
+
+pub fn addDebuggerTests(b: *std.Build, options: DebuggerContext.Options) ?*Step {
+    const step = b.step("test-debugger", "Run the debugger tests");
+    if (options.gdb == null and options.lldb == null) {
+        step.dependOn(&b.addFail("test-debugger requires -Dgdb and/or -Dlldb").step);
+        return null;
+    }
+
+    var context: DebuggerContext = .{
+        .b = b,
+        .options = options,
+        .root_step = step,
+    };
+    context.addTestsForTarget(.{
+        .resolved = b.resolveTargetQuery(.{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .none,
+        }),
+        .pic = false,
+        .test_name_suffix = "x86_64-linux",
+    });
+    context.addTestsForTarget(.{
+        .resolved = b.resolveTargetQuery(.{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .none,
+        }),
+        .pic = true,
+        .test_name_suffix = "x86_64-linux-pic",
+    });
+    return step;
 }
