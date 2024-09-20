@@ -7253,7 +7253,7 @@ joinpd1("mtp="),
 .{
     .name = "Wp,",
     .syntax = .comma_joined,
-    .zig_equivalent = .other,
+    .zig_equivalent = .wp,
     .pd1 = true,
     .pd2 = false,
     .psl = false,
