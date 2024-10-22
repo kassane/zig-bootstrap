@@ -52,6 +52,7 @@ def EE_BITREV:  EE_Inst24<(outs QR:$qa, AR:$axr), (ins AR:$ax),
   bits<4> ax;
   
   
+  let Constraints = "$axr = $ax";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qa{2-1};
   let Inst{19-16} = 0xd;
@@ -105,16 +106,28 @@ def EE_CMUL_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-6} = 0x3;
-  let Inst{5-4} = sel4{1-0};
-  let Inst{3-0} = as{3-0};
-  
   let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{9-8} = sel4{1-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -134,16 +147,27 @@ def EE_CMUL_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qz), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1c8;
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-6} = 0x0;
-  let Inst{5-4} = sel4{1-0};
-  let Inst{3-0} = as{3-0};
-
   let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 0;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{9-8} = sel4{1-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -165,16 +189,26 @@ def EE_FFT_AMS_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz, QR:$qz1), 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x34;
-  let Inst{22} = sel2{0};
-  let Inst{21-20} = qz1{2-1};
-  let Inst{19-17} = qm{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qz{2-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7} = qz1{0};
-  let Inst{6-4} = qu{2-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25} = sel2{0};
+  let Inst{24} = qz1{2};
+  let Inst{23} = qz{0};
+  let Inst{22-20} = qy{2-0};
+  let Inst{19} = qz1{1};
+  let Inst{18-16} = qm{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qz{2-1};
+  let Inst{11} = qz1{0};
+  let Inst{10-8} = qu{2-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -196,16 +230,26 @@ def EE_FFT_AMS_S16_LD_INCP_UAUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz, QR:$q
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x35;
-  let Inst{22} = sel2{0};
-  let Inst{21-20} = qz1{2-1};
-  let Inst{19-17} = qm{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qz{2-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7} = qz1{0};
-  let Inst{6-4} = qu{2-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = sel2{0};
+  let Inst{24} = qz1{2};
+  let Inst{23} = qz{0};
+  let Inst{22-20} = qy{2-0};
+  let Inst{19} = qz1{1};
+  let Inst{18-16} = qm{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qz{2-1};
+  let Inst{11} = qz1{0};
+  let Inst{10-8} = qu{2-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -227,16 +271,26 @@ def EE_FFT_AMS_S16_LD_R32_DECP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz, QR:$qz
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x36;
-  let Inst{22} = sel2{0};
-  let Inst{21-20} = qz1{2-1};
-  let Inst{19-17} = qm{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qz{2-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7} = qz1{0};
-  let Inst{6-4} = qu{2-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = sel2{0};
+  let Inst{24} = qz1{2};
+  let Inst{23} = qz{0};
+  let Inst{22-20} = qy{2-0};
+  let Inst{19} = qz1{1};
+  let Inst{18-16} = qm{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qz{2-1};
+  let Inst{11} = qz1{0};
+  let Inst{10-8} = qu{2-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -258,15 +312,24 @@ def EE_FFT_AMS_S16_ST_INCP:  EE_Inst32<(outs QR:$qz1, AR:$as0r, AR:$asr), (ins Q
   
   let mayStore = 1;
   
-  let Inst{28-24} = 0x14;
-  let Inst{23} = sel2{0};
-  let Inst{22-20} = qz1{2-0};
-  let Inst{19-17} = qx{2-0};
-  let Inst{16-14} = qy{2-0};
-  let Inst{13-11} = qm{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = as{3-0};
-  let Inst{3-0} = as0{3-0};
+  let Constraints = "$as0r = $as0, $asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = sel2{0};
+  let Inst{25-24} = qz1{2-1};
+  let Inst{23} = qm{0};
+  let Inst{22-20} = qv{2-0};
+  let Inst{19} = qz1{0};
+  let Inst{18-16} = qx{2-0};
+  let Inst{15-14} = qy{1-0};
+  let Inst{13-12} = qm{2-1};
+  let Inst{11-8} = as{3-0};
+  let Inst{7-4} = as0{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qy{2};
 }
 
 let usesCustomInserter = 1 in
@@ -287,14 +350,24 @@ def EE_FFT_CMUL_S16_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$a
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x37;
-  let Inst{22-20} = sel8{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qu{2-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 1;
+  let Inst{26} = 1;
+  let Inst{25-24} = sel8{2-1};
+  let Inst{23} = qu{0};
+  let Inst{22-20} = qy{2-0};
+  let Inst{19} = sel8{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qu{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -316,15 +389,24 @@ def EE_FFT_CMUL_S16_ST_XP:  EE_Inst32<(outs AR:$asr), (ins QR:$qx, QR:$qy, QR:$q
   
   let mayStore = 1;
   
-  let Inst{28-24} = 0x15;
-  let Inst{23-22} = sar4{1-0};
-  let Inst{21-20} = upd4{1-0};
-  let Inst{19-17} = qv{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = sel8{2-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26-25} = sar4{1-0};
+  let Inst{24} = upd4{1};
+  let Inst{23} = sel8{0};
+  let Inst{22-20} = qy{2-0};
+  let Inst{19} = upd4{0};
+  let Inst{18-16} = qv{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = sel8{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -372,14 +454,29 @@ def EE_FFT_R2BF_S16_ST_INCP:  EE_Inst32<(outs QR:$qa0, AR:$asr), (ins QR:$qx, QR
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1d1;
-  let Inst{19-17} = qa0{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13} = 0x0;
-  let Inst{12-11} = sar4{1-0};
-  let Inst{10-8} = qy{2-0};
-  let Inst{7-4} = 0x4;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = sar4{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qy{2-0};
+  let Inst{18-16} = qa0{2-0};
+  let Inst{13} = 0;
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{12} = sar4{1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -396,6 +493,7 @@ def EE_FFT_VST_R32_DECP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, select_
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qv{2-1};
   let Inst{19-16} = 0xd;
@@ -424,13 +522,21 @@ def EE_LDF_128_IP:  EE_Inst32<(outs FPR:$fu3, FPR:$fu2, FPR:$fu1, FPR:$fu0, AR:$
   
   let mayLoad = 1;
   
-  let Inst{28-24} = 0x10;
-  let Inst{23-20} = fu3{3-0};
-  let Inst{19-16} = fu2{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26-24} = fu3{3-1};
+  let Inst{23-20} = fu0{3-0};
+  let Inst{19} = fu3{0};
+  let Inst{18-16} = fu2{3-1};
   let Inst{15-12} = fu1{3-0};
-  let Inst{11-8} = fu0{3-0};
-  let Inst{7-4} = imm16f{3-0};
-  let Inst{3-0} = as{3-0};
+  let Inst{11-8} = imm16f{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = fu2{0};
 }
 
 let usesCustomInserter = 1 in
@@ -450,13 +556,21 @@ def EE_LDF_128_XP:  EE_Inst32<(outs FPR:$fu3, FPR:$fu2, FPR:$fu1, FPR:$fu0, AR:$
   
   let mayLoad = 1;
   
-  let Inst{28-24} = 0x11;
-  let Inst{23-20} = fu3{3-0};
-  let Inst{19-16} = fu2{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26-24} = fu3{3-1};
+  let Inst{23-20} = fu0{3-0};
+  let Inst{19} = fu3{0};
+  let Inst{18-16} = fu2{3-1};
   let Inst{15-12} = fu1{3-0};
-  let Inst{11-8} = fu0{3-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = fu2{0};
 }
 
 let usesCustomInserter = 1 in
@@ -474,13 +588,24 @@ def EE_LDF_64_IP:  EE_Inst32<(outs FPR:$fu1, FPR:$fu0, AR:$asr), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-16} = imm8{7-1};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = imm8{7-6};
+  let Inst{23-20} = fu0{3-0};
+  let Inst{19-16} = imm8{5-2};
+  let Inst{11} = 0;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
   let Inst{15-12} = fu1{3-0};
-  let Inst{11-8} = fu0{3-0};
-  let Inst{7-5} = 0x2;
-  let Inst{4} = imm8{0};
-  let Inst{3-0} = as{3-0};
+  let Inst{8} = imm8{0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = imm8{1};
 }
 
 let usesCustomInserter = 1 in
@@ -498,6 +623,7 @@ def EE_LDF_64_XP:  EE_Inst24<(outs FPR:$fu1, FPR:$fu0, AR:$asr), (ins AR:$as, AR
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-20} = fu0{3-0};
   let Inst{19-16} = 0x6;
   let Inst{15-12} = fu1{3-0};
@@ -519,6 +645,7 @@ def EE_LDQA_S16_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$i
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x2;
@@ -540,6 +667,7 @@ def EE_LDQA_S16_128_XP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-12} = 0x7e4;
   let Inst{11-8} = ad{3-0};
   let Inst{7-4} = as{3-0};
@@ -559,6 +687,7 @@ def EE_LDQA_S8_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$im
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x22;
@@ -580,6 +709,7 @@ def EE_LDQA_S8_128_XP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-12} = 0x714;
   let Inst{11-8} = ad{3-0};
   let Inst{7-4} = as{3-0};
@@ -599,6 +729,7 @@ def EE_LDQA_U16_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$i
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0xa;
@@ -620,6 +751,7 @@ def EE_LDQA_U16_128_XP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-12} = 0x7a4;
   let Inst{11-8} = ad{3-0};
   let Inst{7-4} = as{3-0};
@@ -639,6 +771,7 @@ def EE_LDQA_U8_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$im
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x2a;
@@ -660,6 +793,7 @@ def EE_LDQA_U8_128_XP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-12} = 0x704;
   let Inst{11-8} = ad{3-0};
   let Inst{7-4} = as{3-0};
@@ -682,13 +816,29 @@ def EE_LDXQ_32:  EE_Inst32<(outs QR:$qu), (ins QR:$qs, AR:$as, select_4:$sel4, s
   
   let mayLoad = 1;
   
-  let Inst{28-22} = 0x70;
-  let Inst{21-20} = sel4{1-0};
-  let Inst{19-17} = qu{2-0};
-  let Inst{16-14} = qs{2-0};
-  let Inst{13-11} = sel8{2-0};
-  let Inst{10-4} = 0x7d;
-  let Inst{3-0} = as{3-0};
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = sel4{1};
+  let Inst{22} = 1;
+  let Inst{21} = 1;
+  let Inst{20} = 1;
+  let Inst{23} = sel8{0};
+  let Inst{19} = sel4{0};
+  let Inst{18-16} = qu{2-0};
+  let Inst{15-14} = qs{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = sel8{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qs{2};
 }
 
 let usesCustomInserter = 1 in
@@ -705,6 +855,7 @@ def EE_LD_128_USAR_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_25
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm16{7};
   let Inst{21-20} = qu{2-1};
@@ -729,6 +880,7 @@ def EE_LD_128_USAR_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -752,6 +904,7 @@ def EE_LD_ACCX_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_8:$imm8),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm8{7};
   let Inst{21-15} = 0x1c;
@@ -773,6 +926,7 @@ def EE_LD_QACC_H_H_32_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_4:$
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm4{7};
   let Inst{21-15} = 0x3c;
@@ -794,6 +948,7 @@ def EE_LD_QACC_H_L_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0xc;
@@ -815,6 +970,7 @@ def EE_LD_QACC_L_H_32_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_4:$
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm4{7};
   let Inst{21-15} = 0x2c;
@@ -836,6 +992,7 @@ def EE_LD_QACC_L_L_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x0;
@@ -857,6 +1014,7 @@ def EE_LD_UA_STATE_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$im
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x20;
@@ -1047,6 +1205,7 @@ def EE_SLCI_2Q:  EE_Inst24<(outs QR:$qs1r, QR:$qs0r), (ins QR:$qs1, QR:$qs0, sel
   bits<4> sar16;
   
   
+  let Constraints = "$qs1r = $qs1, $qs0r = $qs0";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -1071,6 +1230,7 @@ def EE_SLCXXP_2Q:  EE_Inst24<(outs QR:$qs1r, QR:$qs0r, AR:$asr), (ins QR:$qs1, Q
   bits<4> ad;
   
   
+  let Constraints = "$qs1r = $qs1, $qs0r = $qs0, $asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0x6;
@@ -1094,6 +1254,7 @@ def EE_SRCI_2Q:  EE_Inst24<(outs QR:$qs1r, QR:$qs0r), (ins QR:$qs1, QR:$qs0, sel
   bits<4> sar16;
   
   
+  let Constraints = "$qs1r = $qs1, $qs0r = $qs0";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -1166,6 +1327,7 @@ def EE_SRCQ_128_ST_INCP:  EE_Inst24<(outs AR:$asr), (ins QR:$qs0, QR:$qs1, AR:$a
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -1190,6 +1352,7 @@ def EE_SRCXXP_2Q:  EE_Inst24<(outs QR:$qs1r, QR:$qs0r, AR:$asr), (ins QR:$qs1, Q
   bits<4> ad;
   
   
+  let Constraints = "$qs1r = $qs1, $qs0r = $qs0, $asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0x6;
@@ -1239,15 +1402,26 @@ def EE_SRC_Q_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = imm16{7-5};
-  let Inst{19-17} = qu{2-0};
-  let Inst{16-14} = qs0{2-0};
-  let Inst{13-11} = imm16{4-2};
-  let Inst{10-8} = qs1{2-0};
-  let Inst{7-6} = 0x0;
-  let Inst{5-4} = imm16{1-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = imm16{7-6};
+  let Inst{23} = imm16{2};
+  let Inst{22-20} = qs1{2-0};
+  let Inst{19} = imm16{5};
+  let Inst{18-16} = qu{2-0};
+  let Inst{15-14} = qs0{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{13-12} = imm16{4-3};
+  let Inst{9-8} = imm16{1-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qs0{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1266,13 +1440,26 @@ def EE_SRC_Q_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (ins AR:$as, AR
   
   let mayLoad = 1;
   
-  let Inst{28-20} = 0x1d0;
-  let Inst{19-17} = qu{2-0};
-  let Inst{16-14} = qs0{2-0};
-  let Inst{13-11} = 0x0;
-  let Inst{10-8} = qs1{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = 0;
+  let Inst{19} = 0;
+  let Inst{22-20} = qs1{2-0};
+  let Inst{18-16} = qu{2-0};
+  let Inst{13} = 0;
+  let Inst{12} = 0;
+  let Inst{15-14} = qs0{1-0};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qs0{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1288,6 +1475,7 @@ def EE_SRC_Q_QUP:  EE_Inst24<(outs QR:$qa, QR:$qs0r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -1336,13 +1524,21 @@ def EE_STF_128_IP:  EE_Inst32<(outs AR:$asr), (ins FPR:$fv3, FPR:$fv2, FPR:$fv1,
   
   let mayStore = 1;
   
-  let Inst{28-24} = 0x12;
-  let Inst{23-20} = fv3{3-0};
-  let Inst{19-16} = fv2{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26-24} = fv3{3-1};
+  let Inst{23-20} = fv0{3-0};
+  let Inst{19} = fv3{0};
+  let Inst{18-16} = fv2{3-1};
   let Inst{15-12} = fv1{3-0};
-  let Inst{11-8} = fv0{3-0};
-  let Inst{7-4} = imm16f{3-0};
-  let Inst{3-0} = as{3-0};
+  let Inst{11-8} = imm16f{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = fv2{0};
 }
 
 let usesCustomInserter = 1 in
@@ -1362,13 +1558,21 @@ def EE_STF_128_XP:  EE_Inst32<(outs AR:$asr), (ins FPR:$fv3, FPR:$fv2, FPR:$fv1,
   
   let mayStore = 1;
   
-  let Inst{28-24} = 0x13;
-  let Inst{23-20} = fv3{3-0};
-  let Inst{19-16} = fv2{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27} = 1;
+  let Inst{26-24} = fv3{3-1};
+  let Inst{23-20} = fv0{3-0};
+  let Inst{19} = fv3{0};
+  let Inst{18-16} = fv2{3-1};
   let Inst{15-12} = fv1{3-0};
-  let Inst{11-8} = fv0{3-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = fv2{0};
 }
 
 let usesCustomInserter = 1 in
@@ -1386,13 +1590,24 @@ def EE_STF_64_IP:  EE_Inst32<(outs AR:$asr), (ins FPR:$fv1, FPR:$fv0, AR:$as, of
   
   let mayStore = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-16} = imm8{7-1};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = imm8{7-6};
+  let Inst{23-20} = fv0{3-0};
+  let Inst{19-16} = imm8{5-2};
+  let Inst{11} = 0;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
   let Inst{15-12} = fv1{3-0};
-  let Inst{11-8} = fv0{3-0};
-  let Inst{7-5} = 0x3;
-  let Inst{4} = imm8{0};
-  let Inst{3-0} = as{3-0};
+  let Inst{8} = imm8{0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = imm8{1};
 }
 
 let usesCustomInserter = 1 in
@@ -1410,6 +1625,7 @@ def EE_STF_64_XP:  EE_Inst24<(outs AR:$asr), (ins FPR:$fv1, FPR:$fv0, AR:$as, AR
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-20} = fv0{3-0};
   let Inst{19-16} = 0x7;
   let Inst{15-12} = fv1{3-0};
@@ -1434,14 +1650,29 @@ def EE_STXQ_32:  EE_Inst32<(outs), (ins QR:$qv, QR:$qs, AR:$as, select_4:$sel4, 
   
   let mayStore = 1;
   
-  let Inst{28-22} = 0x73;
-  let Inst{21-20} = sel4{1-0};
-  let Inst{19-17} = 0x0;
-  let Inst{16-14} = qs{2-0};
-  let Inst{13-11} = sel8{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x0;
-  let Inst{3-0} = as{3-0};
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 1;
+  let Inst{24} = sel4{1};
+  let Inst{23} = sel8{0};
+  let Inst{22-20} = qv{2-0};
+  let Inst{18} = 0;
+  let Inst{17} = 0;
+  let Inst{16} = 0;
+  let Inst{19} = sel4{0};
+  let Inst{15-14} = qs{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = sel8{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qs{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1457,6 +1688,7 @@ def EE_ST_ACCX_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_8:$imm8),
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm8{7};
   let Inst{21-15} = 0x4;
@@ -1478,6 +1710,7 @@ def EE_ST_QACC_H_H_32_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_4:$
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm4{7};
   let Inst{21-15} = 0x24;
@@ -1499,6 +1732,7 @@ def EE_ST_QACC_H_L_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x1a;
@@ -1520,6 +1754,7 @@ def EE_ST_QACC_L_H_32_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_4:$
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm4{7};
   let Inst{21-15} = 0x3a;
@@ -1541,6 +1776,7 @@ def EE_ST_QACC_L_L_128_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x18;
@@ -1562,6 +1798,7 @@ def EE_ST_UA_STATE_IP:  EE_Inst24<(outs AR:$asr), (ins AR:$as, offset_256_16:$im
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x0;
   let Inst{22} = imm16{7};
   let Inst{21-15} = 0x38;
@@ -1610,13 +1847,29 @@ def EE_VADDS_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x2d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1635,13 +1888,28 @@ def EE_VADDS_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1c9;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x0;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1684,13 +1952,29 @@ def EE_VADDS_S32_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x3d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1709,13 +1993,28 @@ def EE_VADDS_S32_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1c9;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x1;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1758,13 +2057,29 @@ def EE_VADDS_S8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x1c;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -1783,13 +2098,28 @@ def EE_VADDS_S8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1c9;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x2;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2044,6 +2374,7 @@ def EE_VLDBC_16_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_128_2
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0x5;
@@ -2067,6 +2398,7 @@ def EE_VLDBC_16_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2113,6 +2445,7 @@ def EE_VLDBC_32_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_256_4
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm4{7};
   let Inst{21-20} = qu{2-1};
@@ -2137,6 +2470,7 @@ def EE_VLDBC_32_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2183,6 +2517,7 @@ def EE_VLDBC_8_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_128_1:
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0x5;
@@ -2206,6 +2541,7 @@ def EE_VLDBC_8_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2230,6 +2566,7 @@ def EE_VLDHBC_16_INCP:  EE_Inst24<(outs QR:$qu, QR:$qu1, AR:$asr), (ins AR:$as),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xc;
@@ -2254,6 +2591,7 @@ def EE_VLD_128_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_256_16
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm16{7};
   let Inst{21-20} = qu{2-1};
@@ -2278,6 +2616,7 @@ def EE_VLD_128_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2302,6 +2641,7 @@ def EE_VLD_H_64_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_256_8
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm8{7};
   let Inst{21-20} = qu{2-1};
@@ -2326,6 +2666,7 @@ def EE_VLD_H_64_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2350,6 +2691,7 @@ def EE_VLD_L_64_IP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, offset_256_8
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm8{7};
   let Inst{21-20} = qu{2-1};
@@ -2374,6 +2716,7 @@ def EE_VLD_L_64_XP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:$ad),
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qu{2-1};
   let Inst{19-16} = 0xd;
@@ -2424,13 +2767,29 @@ def EE_VMAX_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x1d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2449,13 +2808,28 @@ def EE_VMAX_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1c9;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x3;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2498,13 +2872,29 @@ def EE_VMAX_S32_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x1e;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2523,13 +2913,28 @@ def EE_VMAX_S32_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1ca;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x0;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 0;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2572,13 +2977,29 @@ def EE_VMAX_S8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as, 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x1f;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2597,13 +3018,28 @@ def EE_VMAX_S8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as, 
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1cb;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x0;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2646,13 +3082,29 @@ def EE_VMIN_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x2e;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2671,13 +3123,28 @@ def EE_VMIN_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1ca;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x1;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 0;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2720,13 +3187,29 @@ def EE_VMIN_S32_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x3e;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2745,13 +3228,28 @@ def EE_VMIN_S32_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1cb;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x1;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2794,13 +3292,29 @@ def EE_VMIN_S8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as, 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x2f;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2819,13 +3333,28 @@ def EE_VMIN_S8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as, 
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1ca;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x2;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 0;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2864,15 +3393,27 @@ def EE_VMULAS_S16_ACCX_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x0;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 0;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2893,15 +3434,23 @@ def EE_VMULAS_S16_ACCX_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x0;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2920,14 +3469,28 @@ def EE_VMULAS_S16_ACCX_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x0;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 0;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2948,14 +3511,24 @@ def EE_VMULAS_S16_ACCX_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x2c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -2993,6 +3566,7 @@ def EE_VMULAS_S16_QACC_LDBC_INCP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-21} = 0x4;
   let Inst{20} = qu{2};
   let Inst{19-16} = 0x7;
@@ -3022,14 +3596,27 @@ def EE_VMULAS_S16_QACC_LDBC_INCP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = 0x8;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3048,15 +3635,27 @@ def EE_VMULAS_S16_QACC_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x1;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 0;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3077,15 +3676,23 @@ def EE_VMULAS_S16_QACC_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x1;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 0;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3104,14 +3711,28 @@ def EE_VMULAS_S16_QACC_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x1;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 0;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3132,14 +3753,24 @@ def EE_VMULAS_S16_QACC_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x2d;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3178,15 +3809,27 @@ def EE_VMULAS_S8_ACCX_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, off
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x2;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 1;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3207,15 +3850,23 @@ def EE_VMULAS_S8_ACCX_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x2;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3234,14 +3885,28 @@ def EE_VMULAS_S8_ACCX_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x2;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 1;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3262,14 +3927,24 @@ def EE_VMULAS_S8_ACCX_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x2e;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3307,6 +3982,7 @@ def EE_VMULAS_S8_QACC_LDBC_INCP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as,
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-21} = 0x5;
   let Inst{20} = qu{2};
   let Inst{19-16} = 0x7;
@@ -3336,14 +4012,27 @@ def EE_VMULAS_S8_QACC_LDBC_INCP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r)
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = 0x9;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3362,15 +4051,27 @@ def EE_VMULAS_S8_QACC_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, off
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x3;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 1;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3391,15 +4092,23 @@ def EE_VMULAS_S8_QACC_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x3;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3418,14 +4127,28 @@ def EE_VMULAS_S8_QACC_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x3;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 0;
+  let Inst{17} = 1;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3446,14 +4169,24 @@ def EE_VMULAS_S8_QACC_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x2f;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 0;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 1;
+  let Inst{26} = 1;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3492,15 +4225,27 @@ def EE_VMULAS_U16_ACCX_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x4;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 0;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3521,15 +4266,23 @@ def EE_VMULAS_U16_ACCX_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x4;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3548,14 +4301,28 @@ def EE_VMULAS_U16_ACCX_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x4;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 0;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3576,14 +4343,24 @@ def EE_VMULAS_U16_ACCX_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x30;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3621,6 +4398,7 @@ def EE_VMULAS_U16_QACC_LDBC_INCP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-21} = 0x6;
   let Inst{20} = qu{2};
   let Inst{19-16} = 0x7;
@@ -3650,14 +4428,27 @@ def EE_VMULAS_U16_QACC_LDBC_INCP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = 0xa;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3676,15 +4467,27 @@ def EE_VMULAS_U16_QACC_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, of
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x5;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 0;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3705,15 +4508,23 @@ def EE_VMULAS_U16_QACC_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x5;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3732,14 +4543,28 @@ def EE_VMULAS_U16_QACC_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x5;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 0;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3760,14 +4585,24 @@ def EE_VMULAS_U16_QACC_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x31;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3806,15 +4641,27 @@ def EE_VMULAS_U8_ACCX_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, off
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x6;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 1;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3835,15 +4682,23 @@ def EE_VMULAS_U8_ACCX_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x6;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3862,14 +4717,28 @@ def EE_VMULAS_U8_ACCX_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x6;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 1;
+  let Inst{16} = 0;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3890,14 +4759,24 @@ def EE_VMULAS_U8_ACCX_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x32;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3935,6 +4814,7 @@ def EE_VMULAS_U8_QACC_LDBC_INCP:  EE_Inst24<(outs QR:$qu, AR:$asr), (ins AR:$as,
   
   let mayLoad = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-21} = 0x7;
   let Inst{20} = qu{2};
   let Inst{19-16} = 0x7;
@@ -3964,14 +4844,27 @@ def EE_VMULAS_U8_QACC_LDBC_INCP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r)
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = 0xb;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -3990,15 +4883,27 @@ def EE_VMULAS_U8_QACC_LD_IP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, off
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0xf;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x7;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x0;
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 1;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4019,15 +4924,23 @@ def EE_VMULAS_U8_QACC_LD_IP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-25} = 0x7;
-  let Inst{24-23} = imm16{5-4};
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = imm16{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 0;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27-26} = imm16{5-4};
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = imm16{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4046,14 +4959,28 @@ def EE_VMULAS_U8_QACC_LD_XP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, AR:
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x3c;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = 0x7;
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = 0x1;
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 1;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{18} = 1;
+  let Inst{17} = 1;
+  let Inst{16} = 1;
+  let Inst{19} = qu{0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4074,14 +5001,24 @@ def EE_VMULAS_U8_QACC_LD_XP_QUP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qs0r), (i
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x33;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qs1{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qs0{2-0};
-  let Inst{7-4} = ad{3-0};
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as, $qs0r = $qs0";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 0;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 1;
+  let Inst{25-24} = qu{2-1};
+  let Inst{23} = qy{0};
+  let Inst{22-20} = qs0{2-0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qs1{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{13-12} = qy{2-1};
+  let Inst{11-8} = ad{3-0};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4124,13 +5061,29 @@ def EE_VMUL_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x3f;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4149,13 +5102,28 @@ def EE_VMUL_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qz), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1cb;
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x2;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4198,13 +5166,29 @@ def EE_VMUL_S8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$as, 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x4c;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4223,13 +5207,28 @@ def EE_VMUL_S8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qz), (ins QR:$qv, AR:$as, 
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1ca;
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x3;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 0;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4272,13 +5271,29 @@ def EE_VMUL_U16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x5c;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4297,13 +5312,28 @@ def EE_VMUL_U16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qz), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1cb;
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x3;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 1;
+  let Inst{25} = 0;
+  let Inst{24} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4346,13 +5376,29 @@ def EE_VMUL_U8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qz), (ins AR:$as, 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x6c;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 1;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4371,13 +5417,28 @@ def EE_VMUL_U8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qz), (ins QR:$qv, AR:$as, 
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1d1;
-  let Inst{19-17} = qz{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x0;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qz{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4445,6 +5506,7 @@ def EE_VRELU_S16:  EE_Inst24<(outs QR:$qsr), (ins QR:$qs, AR:$ax, AR:$ay),
   bits<4> ay;
   
   
+  let Constraints = "$qsr = $qs";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs{2-1};
   let Inst{19-16} = 0xd;
@@ -4468,6 +5530,7 @@ def EE_VRELU_S8:  EE_Inst24<(outs QR:$qsr), (ins QR:$qs, AR:$ax, AR:$ay),
   bits<4> ay;
   
   
+  let Constraints = "$qsr = $qs";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs{2-1};
   let Inst{19-16} = 0xd;
@@ -4539,13 +5602,29 @@ def EE_VSMULAS_S16_QACC_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = sel8{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x7c;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 1;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = sel8{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4590,15 +5669,29 @@ def EE_VSMULAS_S8_QACC_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr), (ins AR:$as, 
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = sel16{3-1};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-9} = 0x1;
-  let Inst{8} = sel16{0};
-  let Inst{7-4} = 0xc;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 0;
+  let Inst{21} = 1;
+  let Inst{23} = qy{0};
+  let Inst{20} = sel16{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = sel16{3-1};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4636,6 +5729,7 @@ def EE_VST_128_IP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, offset_256_16
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm16{7};
   let Inst{21-20} = qv{2-1};
@@ -4660,6 +5754,7 @@ def EE_VST_128_XP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, AR:$ad),
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x2;
   let Inst{21-20} = qv{2-1};
   let Inst{19-16} = 0xd;
@@ -4684,6 +5779,7 @@ def EE_VST_H_64_IP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, offset_256_8
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm8{7};
   let Inst{21-20} = qv{2-1};
@@ -4708,6 +5804,7 @@ def EE_VST_H_64_XP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, AR:$ad),
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qv{2-1};
   let Inst{19-16} = 0xd;
@@ -4732,6 +5829,7 @@ def EE_VST_L_64_IP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, offset_256_8
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23} = 0x1;
   let Inst{22} = imm8{7};
   let Inst{21-20} = qv{2-1};
@@ -4756,6 +5854,7 @@ def EE_VST_L_64_XP:  EE_Inst24<(outs AR:$asr), (ins QR:$qv, AR:$as, AR:$ad),
   
   let mayStore = 1;
   
+  let Constraints = "$asr = $as";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qv{2-1};
   let Inst{19-16} = 0xd;
@@ -4806,13 +5905,29 @@ def EE_VSUBS_S16_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x4d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 0;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4831,13 +5946,28 @@ def EE_VSUBS_S16_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1d1;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x1;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4880,13 +6010,29 @@ def EE_VSUBS_S32_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x5d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 0;
+  let Inst{20} = 1;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4905,13 +6051,28 @@ def EE_VSUBS_S32_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1d1;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x2;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 0;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4954,13 +6115,29 @@ def EE_VSUBS_S8_LD_INCP:  EE_Inst32<(outs QR:$qu, AR:$asr, QR:$qa), (ins AR:$as,
   
   let mayLoad = 1;
   
-  let Inst{28-23} = 0x38;
-  let Inst{22-20} = qu{2-0};
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-4} = 0x6d;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 0;
+  let Inst{26} = 0;
+  let Inst{25-24} = qu{2-1};
+  let Inst{22} = 1;
+  let Inst{21} = 1;
+  let Inst{20} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = qu{0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 1;
+  let Inst{10} = 1;
+  let Inst{9} = 0;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -4979,13 +6156,28 @@ def EE_VSUBS_S8_ST_INCP:  EE_Inst32<(outs AR:$asr, QR:$qa), (ins QR:$qv, AR:$as,
   
   let mayStore = 1;
   
-  let Inst{28-20} = 0x1d1;
-  let Inst{19-17} = qa{2-0};
-  let Inst{16-14} = qx{2-0};
-  let Inst{13-11} = qy{2-0};
-  let Inst{10-8} = qv{2-0};
-  let Inst{7-4} = 0x3;
-  let Inst{3-0} = as{3-0};
+  let Constraints = "$asr = $as";
+  let Inst{31} = 1;
+  let Inst{30} = 1;
+  let Inst{29} = 1;
+  let Inst{28} = 0;
+  let Inst{27} = 1;
+  let Inst{26} = 0;
+  let Inst{25} = 0;
+  let Inst{24} = 0;
+  let Inst{23} = qy{0};
+  let Inst{19} = 1;
+  let Inst{22-20} = qv{2-0};
+  let Inst{18-16} = qa{2-0};
+  let Inst{15-14} = qx{1-0};
+  let Inst{11} = 0;
+  let Inst{10} = 0;
+  let Inst{9} = 1;
+  let Inst{8} = 1;
+  let Inst{13-12} = qy{2-1};
+  let Inst{7-4} = as{3-0};
+  let Inst{3-1} = 0b111;
+  let Inst{0} = qx{2};
 }
 
 let usesCustomInserter = 1 in
@@ -5000,6 +6192,7 @@ def EE_VUNZIP_16:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -5020,6 +6213,7 @@ def EE_VUNZIP_32:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -5040,6 +6234,7 @@ def EE_VUNZIP_8:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -5060,6 +6255,7 @@ def EE_VZIP_16:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -5080,6 +6276,7 @@ def EE_VZIP_32:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
@@ -5100,6 +6297,7 @@ def EE_VZIP_8:  EE_Inst24<(outs QR:$qs0r, QR:$qs1r), (ins QR:$qs0, QR:$qs1),
   bits<3> qs1;
   
   
+  let Constraints = "$qs0r = $qs0, $qs1r = $qs1";
   let Inst{23-22} = 0x3;
   let Inst{21-20} = qs1{2-1};
   let Inst{19-16} = 0xc;
