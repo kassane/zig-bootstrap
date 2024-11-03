@@ -17,6 +17,7 @@ pub const Feature = enum {
     esp32s3,
     exception,
     extendedl32r,
+    forced_atomics,
     fp,
     hifi3,
     highpriinterrupts,
@@ -107,6 +108,11 @@ pub const all_features = blk: {
     result[@intFromEnum(Feature.extendedl32r)] = .{
         .llvm_name = "extendedl32r",
         .description = "Enable Xtensa Extended L32R option",
+        .dependencies = featureSet(&[_]Feature{}),
+    };
+    result[@intFromEnum(Feature.forced_atomics)] = .{
+        .llvm_name = "forced-atomics",
+        .description = "Assume that lock-free native-width atomics are available",
         .dependencies = featureSet(&[_]Feature{}),
     };
     result[@intFromEnum(Feature.fp)] = .{
@@ -328,6 +334,7 @@ pub const cpu = struct {
             .coprocessor,
             .debug,
             .density,
+            .dfpaccel,
             .div32,
             .esp32s3,
             .exception,
