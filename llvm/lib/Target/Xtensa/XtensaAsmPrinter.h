@@ -1,7 +1,5 @@
 //===- XtensaAsmPrinter.h - Xtensa LLVM Assembly Printer --------*- C++-*--===//
 //
-//                     The LLVM Compiler Infrastructure
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -37,17 +35,36 @@ public:
                             std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), STI(TM.getMCSubtargetInfo()) {}
 
-  // Override AsmPrinter.
   StringRef getPassName() const override { return "Xtensa Assembly Printer"; }
   void emitInstruction(const MachineInstr *MI) override;
+
   void emitConstantPool() override;
+
   void emitMachineConstantPoolEntry(const MachineConstantPoolEntry &CPE, int i);
+
   void emitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) override;
+
   void printOperand(const MachineInstr *MI, int opNum, raw_ostream &O);
+
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                        const char *ExtraCode, raw_ostream &O) override;
+
   bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
                              const char *ExtraCode, raw_ostream &OS) override;
+
+  MCSymbol *GetConstantPoolIndexSymbol(const MachineOperand &MO) const;
+
+  MCSymbol *GetJumpTableSymbol(const MachineOperand &MO) const;
+
+  MCOperand LowerSymbolOperand(const MachineOperand &MO,
+                               MachineOperand::MachineOperandType MOTy,
+                               unsigned Offset) const;
+
+  // Lower MachineInstr MI to MCInst OutMI.
+  void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI) const;
+
+  // Return an MCOperand for MO.  Return an empty operand if MO is implicit.
+  MCOperand lowerOperand(const MachineOperand &MO, unsigned Offset = 0) const;
 };
 } // end namespace llvm
 

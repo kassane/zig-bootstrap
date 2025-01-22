@@ -30,7 +30,7 @@ def HasSingleFloat          : Predicate<"Subtarget->hasSingleFloat()">,
 def FeatureWindowed         : SubtargetFeature<"windowed", "HasWindowed", "true",
                                                "Enable Xtensa Windowed Register option">;
 def HasWindowed             : Predicate<"Subtarget->hasWindowed()">,
-                                         AssemblerPredicate<(all_of FeatureWindowed)>; 
+                                         AssemblerPredicate<(all_of FeatureWindowed)>;
 
 def FeatureBoolean          : SubtargetFeature<"bool", "HasBoolean", "true",
                                                "Enable Xtensa Boolean extension">;
@@ -182,17 +182,6 @@ def FeatureHIFI3            : SubtargetFeature<"hifi3", "HasHIFI3", "true",
                                                "Enable Xtensa HIFI3 instructions">;
 def HasHIFI3                : Predicate<"Subtarget->hasHIFI3()">,
                                          AssemblerPredicate<(all_of FeatureHIFI3)>;
-
-// Assume that lock-free native-width atomics are available, even if the target
-// and operating system combination would not usually provide them. The user
-// is responsible for providing any necessary __sync implementations. Code
-// built with this feature is not ABI-compatible with code built without this
-// feature, if atomic variables are exposed across the ABI boundary.
-def FeatureForcedAtomics    : SubtargetFeature<"forced-atomics", "HasForcedAtomics", "true",
-                                              "Assume that lock-free native-width atomics are available">;
-def HasForcedAtomics        : Predicate<"Subtarget->hasForcedAtomics()">,
-                                         AssemblerPredicate<(all_of FeatureForcedAtomics)>;
-def HasAtomicLdSt           : Predicate<"Subtarget->hasS32C1I() || Subtarget->hasForcedAtomics()">;
 
 //===----------------------------------------------------------------------===//
 // Xtensa supported processors.

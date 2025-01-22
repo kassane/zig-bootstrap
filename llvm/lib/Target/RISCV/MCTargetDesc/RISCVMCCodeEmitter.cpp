@@ -174,6 +174,10 @@ void RISCVMCCodeEmitter::expandFunctionCall(const MCInst &MI,
   if (MI.getOpcode() == RISCV::PseudoTAIL) {
     Func = MI.getOperand(0);
     Ra = RISCV::X6;
+    // For Zicfilp, PseudoTAIL should be expanded to a software guarded branch.
+    // It means to use t2(x7) as rs1 of JALR to expand PseudoTAIL.
+    if (STI.hasFeature(RISCV::FeatureStdExtZicfilp))
+      Ra = RISCV::X7;
   } else if (MI.getOpcode() == RISCV::PseudoCALLReg) {
     Func = MI.getOperand(1);
     Ra = MI.getOperand(0).getReg();
@@ -541,7 +545,7 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
     // FIXME: Sub kind binary exprs have chance of underflow.
     if (MIFrm == RISCVII::InstFormatJ) {
       FixupKind = RISCV::fixup_riscv_jal;
-    } else if (MIFrm == RISCVII::InstFormatB ||
+    } else if (MIFrm == RISCVII::InstFormatB||
                MIFrm == RISCVII::InstFormatESP32P4) {
       FixupKind = RISCV::fixup_riscv_branch;
     } else if (MIFrm == RISCVII::InstFormatCJ) {
@@ -748,4 +752,5 @@ RISCVMCCodeEmitter::getUImm13_Step4Operand(const MCInst &MI, unsigned OpNo,
   }
   return getImmOpValue(MI, OpNo, Fixups, STI);
 }
+
 #include "RISCVGenMCCodeEmitter.inc"

@@ -22,6 +22,7 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+
 static void addMultilibsFilePaths(const Driver &D, const MultilibSet &Multilibs,
                                   const Multilib &Multilib,
                                   StringRef InstallPath,
@@ -69,6 +70,7 @@ RISCVToolChain::RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
   } else {
     getProgramPaths().push_back(D.Dir);
   }
+
   getFilePaths().push_back(computeSysRoot() + "/lib");
 }
 
@@ -84,6 +86,11 @@ ToolChain::RuntimeLibType RISCVToolChain::GetDefaultRuntimeLibType() const {
 ToolChain::UnwindLibType
 RISCVToolChain::GetUnwindLibType(const llvm::opt::ArgList &Args) const {
   return ToolChain::UNW_None;
+}
+
+ToolChain::UnwindTableLevel RISCVToolChain::getDefaultUnwindTableLevel(
+    const llvm::opt::ArgList &Args) const {
+  return UnwindTableLevel::None;
 }
 
 void RISCVToolChain::addClangTargetOptions(
@@ -155,6 +162,9 @@ void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (!D.SysRoot.empty())
     CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
+
+  if (Args.hasArg(options::OPT_mno_relax))
+    CmdArgs.push_back("--no-relax");
 
   bool IsRV64 = ToolChain.getArch() == llvm::Triple::riscv64;
   CmdArgs.push_back("-m");

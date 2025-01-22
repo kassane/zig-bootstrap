@@ -58,6 +58,7 @@ class XtensaAsmParser : public MCTargetAsmParser {
     return static_cast<XtensaTargetStreamer &>(TS);
   }
 
+  ParseStatus parseDirective(AsmToken DirectiveID) override;
   bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
   bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
                         SMLoc NameLoc, OperandVector &Operands) override;
@@ -70,7 +71,6 @@ class XtensaAsmParser : public MCTargetAsmParser {
 
   bool processInstruction(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out,
                           const MCSubtargetInfo *STI);
-  bool ParseDirective(AsmToken DirectiveID) override;
 
 // Auto-generated instruction matching functions
 #define GET_ASSEMBLER_HEADER
@@ -93,11 +93,8 @@ class XtensaAsmParser : public MCTargetAsmParser {
   bool parseLiteralDirective(SMLoc L);
   bool parseBeginDirective(SMLoc L);
   bool parseEndDirective(SMLoc L);
-  void onEndOfFile() override {
-    if (!RegionInProgress.empty()) {
-      Error(RegionInProgress.back().Loc, ".end of region is not found");
-    }
-  }
+
+  bool checkRegister(unsigned RegNo);
 
 public:
   enum XtensaMatchResultTy {
@@ -276,12 +273,7 @@ public:
   bool isImm12() const { return isImm(-2048, 2047); }
 
   // Convert MOVI to literal load, when immediate is not in range (-2048, 2047)
-  bool isImm12m() const {
-    if (Kind == Immediate)
-       return true;
-
-    return false;
-  }
+  bool isImm12m() const { return Kind == Immediate; }
 
   bool isOffset4m32() const {
     return isImm(0, 60) &&
@@ -434,7 +426,7 @@ public:
   /// getEndLoc - Gets location of the last token of this operand
   SMLoc getEndLoc() const override { return EndLoc; }
 
-  unsigned getReg() const override {
+  MCRegister getReg() const override {
     assert(Kind == Register && "Invalid type access!");
     return Reg.RegNum;
   }
@@ -543,7 +535,6 @@ bool XtensaAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
                                          const MCSubtargetInfo *STI) {
   Inst.setLoc(IDLoc);
   const unsigned Opcode = Inst.getOpcode();
-
   switch (Opcode) {
   case Xtensa::ADDI: {
     int64_t Imm = Inst.getOperand(2).getImm();
@@ -581,24 +572,20 @@ bool XtensaAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
   } break;
   case Xtensa::L32R: {
     const MCSymbolRefExpr *OpExpr =
-        (const MCSymbolRefExpr *)Inst.getOperand(1).getExpr();
+        static_cast<const MCSymbolRefExpr *>(Inst.getOperand(1).getExpr());
     XtensaMCExpr::VariantKind Kind = XtensaMCExpr::VK_Xtensa_None;
     const MCExpr *NewOpExpr = XtensaMCExpr::create(OpExpr, Kind, getContext());
     Inst.getOperand(1).setExpr(NewOpExpr);
-  } break;
+    break;
+  }
   case Xtensa::MOVI: {
     XtensaTargetStreamer &TS = this->getTargetStreamer();
 
-    //In the case of asm output, simply pass the representation of
-    //the MOVI instruction as is
-    if (TS.getStreamer().hasRawTextSupport())
-      break;
-
-    //Expand MOVI operand
+    // Expand MOVI operand
     if (!Inst.getOperand(1).isExpr()) {
       uint64_t ImmOp64 = Inst.getOperand(1).getImm();
       int32_t Imm = ImmOp64;
-      if ((Imm < -2048) || (Imm > 2047)) {
+      if (!isInt<12>(Imm)) {
         XtensaTargetStreamer &TS = this->getTargetStreamer();
         MCInst TmpInst;
         TmpInst.setLoc(IDLoc);
@@ -612,8 +599,7 @@ bool XtensaAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         TmpInst.addOperand(Inst.getOperand(0));
         MCOperand Op1 = MCOperand::createExpr(OpExpr);
         TmpInst.addOperand(Op1);
-        TS.emitLiteralLabel(Sym, IDLoc);
-        TS.emitLiteral(Value, IDLoc);
+        TS.emitLiteral(Sym, Value, true, IDLoc);
         Inst = TmpInst;
       }
     } else {
@@ -630,10 +616,10 @@ bool XtensaAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
       MCOperand Op1 = MCOperand::createExpr(OpExpr);
       TmpInst.addOperand(Op1);
       Inst = TmpInst;
-      TS.emitLiteralLabel(Sym, IDLoc);
-      TS.emitLiteral(Value, IDLoc);
+      TS.emitLiteral(Sym, Value, true, IDLoc);
     }
-  } break;
+    break;
+  }
   case Xtensa::SRLI: {
     uint32_t ImmOp32 = static_cast<uint32_t>(Inst.getOperand(2).getImm());
     int64_t Imm = ImmOp32;
@@ -664,6 +650,7 @@ bool XtensaAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
   default:
     break;
   }
+
   return true;
 }
 
@@ -715,6 +702,9 @@ bool XtensaAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     return Error(RefineErrorLoc(IDLoc, Operands, ErrorInfo),
                  "expected b4constu immediate");
   case Match_InvalidImm12:
+    return Error(RefineErrorLoc(IDLoc, Operands, ErrorInfo),
+                 "expected immediate in range [-2048, 2047]");
+  case Match_InvalidImm12m:
     return Error(RefineErrorLoc(IDLoc, Operands, ErrorInfo),
                  "expected immediate in range [-2048, 2047]");
   case Match_InvalidImm1_16:
@@ -1134,7 +1124,6 @@ bool XtensaAsmParser::ParseInstruction(ParseInstructionInfo &Info,
 
 bool XtensaAsmParser::parseLiteralDirective(SMLoc L) {
   MCAsmParser &Parser = getParser();
-  MCSymbol *Sym;
   const MCExpr *Value;
   SMLoc LiteralLoc = getLexer().getLoc();
   XtensaTargetStreamer &TS = this->getTargetStreamer();
@@ -1143,13 +1132,11 @@ bool XtensaAsmParser::parseLiteralDirective(SMLoc L) {
     return true;
 
   const MCSymbolRefExpr *SE = dyn_cast<MCSymbolRefExpr>(Value);
+
   if (!SE)
     return Error(LiteralLoc, "literal label must be a symbol");
-  else {
-    Sym = getContext().getOrCreateSymbol(SE->getSymbol().getName());
-  }
 
-  if (Parser.parseToken(AsmToken::Comma, "expected comma"))
+  if (Parser.parseComma())
     return true;
 
   SMLoc OpcodeLoc = getLexer().getLoc();
@@ -1159,8 +1146,12 @@ bool XtensaAsmParser::parseLiteralDirective(SMLoc L) {
   if (Parser.parseExpression(Value))
     return true;
 
-  TS.emitLiteralLabel(Sym, LiteralLoc);
-  TS.emitLiteral(Value, LiteralLoc);
+  if (parseEOL())
+    return true;
+
+  MCSymbol *Sym = getContext().getOrCreateSymbol(SE->getSymbol().getName());
+
+  TS.emitLiteral(Sym, Value, true, LiteralLoc);
 
   return false;
 }
@@ -1228,12 +1219,12 @@ bool XtensaAsmParser::parseEndDirective(SMLoc L) {
     return Error(EndLoc, ".end of the region without .begin");
   else {
     RegionInfo Region = RegionInProgress.pop_back_val();
-   
+
     if (RegionInProgress.empty())
       TS.setLiteralSectionPrefix("");
     else
       TS.setLiteralSectionPrefix(Region.LiteralPrefixName);
-   
+
     if (RegionDirectiveName != Region.RegionDirectiveName) {
       return Error(EndLoc, ".end directive differs from .begin directive");
     }
@@ -1243,15 +1234,18 @@ bool XtensaAsmParser::parseEndDirective(SMLoc L) {
   return false;
 }
 
-bool XtensaAsmParser::ParseDirective(AsmToken DirectiveID) {
+ParseStatus XtensaAsmParser::parseDirective(AsmToken DirectiveID) {
   StringRef IDVal = DirectiveID.getString();
   SMLoc Loc = getLexer().getLoc();
 
   if (IDVal == ".literal_position") {
-    // We currently push literals in literal section which name depends on name
-    // of the current section.
-    // So, assume that we may skip this directive.
-    return false;
+    XtensaTargetStreamer &TS = this->getTargetStreamer();
+    TS.emitLiteralPosition();
+    return parseEOL();
+  }
+
+  if (IDVal == ".literal") {
+    return parseLiteralDirective(Loc);
   }
 
   if (IDVal == ".literal") {
@@ -1269,9 +1263,9 @@ bool XtensaAsmParser::ParseDirective(AsmToken DirectiveID) {
     return false;
   }
 
-  return true;
+  return ParseStatus::NoMatch;
 }
-  
+ 
 // Verify SR and UR
 bool XtensaAsmParser::checkRegister(StringRef Mnemonic, StringRef RegName,
                                     MCRegister RegNo) {
@@ -1283,8 +1277,8 @@ bool XtensaAsmParser::checkRegister(StringRef Mnemonic, StringRef RegName,
   bool IsESP32S2 = false;
   bool IsESP32S3 = false;
   bool Res = true;
-  bool IsWSR = Mnemonic.startswith("wsr");
-  bool IsRSR = Mnemonic.startswith("rsr");
+  bool IsWSR = Mnemonic.starts_with("wsr");
+  bool IsRSR = Mnemonic.starts_with("rsr");
 
   // Assume that CPU is esp32 by default
   if ((CPU == "esp32") || (CPU == "")) {
@@ -1416,7 +1410,7 @@ bool XtensaAsmParser::checkRegister(StringRef Mnemonic, StringRef RegName,
   case Xtensa::INTERRUPT:
     // INTSET mnemonic is wrtite-only
     // INTERRUPT mnemonic is read-only
-    if (RegName.startswith("intset")) {
+    if (RegName.starts_with("intset")) {
       if (!IsWSR)
         Res = false;
     } else if (!IsRSR) {

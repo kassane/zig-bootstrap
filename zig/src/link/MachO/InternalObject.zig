@@ -281,7 +281,7 @@ fn addObjcMethnameSection(self: *InternalObject, methname: []const u8, macho_fil
     sym.nlist_idx = nlist_idx;
     try self.globals.append(gpa, 0);
 
-    return atom_index;
+    return sym_index;
 }
 
 fn addObjcSelrefsSection(self: *InternalObject, methname_sym_index: Symbol.Index, macho_file: *MachO) !Symbol.Index {
@@ -414,10 +414,11 @@ pub fn resolveLiterals(self: *InternalObject, lp: *MachO.LiteralPool, macho_file
         const rel = relocs[0];
         assert(rel.tag == .@"extern");
         const target = rel.getTargetSymbol(atom.*, macho_file).getAtom(macho_file).?;
-        const target_size = std.math.cast(usize, target.size) orelse return error.Overflow;
+        const target_size = try macho_file.cast(usize, target.size);
         try buffer.ensureUnusedCapacity(target_size);
         buffer.resize(target_size) catch unreachable;
-        @memcpy(buffer.items, try self.getSectionData(target.n_sect));
+        const section_data = try self.getSectionData(target.n_sect, macho_file);
+        @memcpy(buffer.items, section_data);
         const res = try lp.insert(gpa, header.type(), buffer.items);
         buffer.clearRetainingCapacity();
         if (!res.found_existing) {
@@ -507,6 +508,41 @@ pub fn scanRelocs(self: *InternalObject, macho_file: *MachO) void {
     }
 }
 
+pub fn checkUndefs(self: InternalObject, macho_file: *MachO) !void {
+    const addUndef = struct {
+        fn addUndef(mf: *MachO, index: MachO.SymbolResolver.Index, tag: anytype) !void {
+            const gpa = mf.base.comp.gpa;
+            mf.undefs_mutex.lock();
+            defer mf.undefs_mutex.unlock();
+            const gop = try mf.undefs.getOrPut(gpa, index);
+            if (!gop.found_existing) {
+                gop.value_ptr.* = tag;
+            }
+        }
+    }.addUndef;
+    for (self.force_undefined.items) |index| {
+        const ref = self.getSymbolRef(index, macho_file);
+        if (ref.getFile(macho_file) == null) {
+            try addUndef(macho_file, self.globals.items[index], .force_undefined);
+        }
+    }
+    if (self.getEntryRef(macho_file)) |ref| {
+        if (ref.getFile(macho_file) == null) {
+            try addUndef(macho_file, self.globals.items[self.entry_index.?], .entry);
+        }
+    }
+    if (self.getDyldStubBinderRef(macho_file)) |ref| {
+        if (ref.getFile(macho_file) == null and macho_file.stubs.symbols.items.len > 0) {
+            try addUndef(macho_file, self.globals.items[self.dyld_stub_binder_index.?], .dyld_stub_binder);
+        }
+    }
+    if (self.getObjcMsgSendRef(macho_file)) |ref| {
+        if (ref.getFile(macho_file) == null and self.needsObjcMsgsendSymbol()) {
+            try addUndef(macho_file, self.globals.items[self.objc_msg_send_index.?], .objc_msgsend);
+        }
+    }
+}
+
 pub fn allocateSyntheticSymbols(self: *InternalObject, macho_file: *MachO) void {
     const text_seg = macho_file.getTextSegment();
 
@@ -572,10 +608,11 @@ pub fn writeAtoms(self: *InternalObject, macho_file: *MachO) !void {
         if (!atom.isAlive()) continue;
         const sect = atom.getInputSection(macho_file);
         if (sect.isZerofill()) continue;
-        const off = std.math.cast(usize, atom.value) orelse return error.Overflow;
-        const size = std.math.cast(usize, atom.size) orelse return error.Overflow;
+        const off = try macho_file.cast(usize, atom.value);
+        const size = try macho_file.cast(usize, atom.size);
         const buffer = macho_file.sections.items(.out)[atom.out_n_sect].items[off..][0..size];
-        @memcpy(buffer, try self.getSectionData(atom.n_sect));
+        const section_data = try self.getSectionData(atom.n_sect, macho_file);
+        @memcpy(buffer, section_data);
         try atom.resolveRelocs(macho_file, buffer);
     }
 }
@@ -609,13 +646,13 @@ fn addSection(self: *InternalObject, allocator: Allocator, segname: []const u8, 
     return n_sect;
 }
 
-fn getSectionData(self: *const InternalObject, index: u32) error{Overflow}![]const u8 {
+fn getSectionData(self: *const InternalObject, index: u32, macho_file: *MachO) error{LinkFailure}![]const u8 {
     const slice = self.sections.slice();
     assert(index < slice.items(.header).len);
     const sect = slice.items(.header)[index];
     const extra = slice.items(.extra)[index];
     if (extra.is_objc_methname) {
-        const size = std.math.cast(usize, sect.size) orelse return error.Overflow;
+        const size = try macho_file.cast(usize, sect.size);
         return self.objc_methnames.items[sect.offset..][0..size];
     } else if (extra.is_objc_selref)
         return &self.objc_selrefs
@@ -789,6 +826,13 @@ pub fn setSymbolExtra(self: *InternalObject, index: u32, extra: Symbol.Extra) vo
             else => @compileError("bad field type"),
         };
     }
+}
+
+fn needsObjcMsgsendSymbol(self: InternalObject) bool {
+    for (self.sections.items(.extra)) |extra| {
+        if (extra.is_objc_methname or extra.is_objc_selref) return true;
+    }
+    return false;
 }
 
 const FormatContext = struct {

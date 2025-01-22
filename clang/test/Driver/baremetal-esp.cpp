@@ -42,7 +42,7 @@
 // CHECK-ESP-RV32IMAC-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-RV32IMAC-SAME: "-L[[SYSROOT]]{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
 // CHECK-ESP-RV32IMAC-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-RV32IMAC-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang %s -### 2>&1 --target=riscv32-esp-elf -fno-integrated-as \
 // RUN:     -L some/directory/user/asked/for \
@@ -65,11 +65,12 @@
 // CHECK-ESP-RV32IMAC-FORCEAS-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-RV32IMAC-FORCEAS-SAME: "-L[[SYSROOT]]{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
 // CHECK-ESP-RV32IMAC-FORCEAS-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-RV32IMAC-FORCEAS-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-FORCEAS-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang %s -### 2>&1 --target=riscv32-esp-elf --ld-path=riscv32-esp-elf-clang-ld \
 // RUN:     -L some/directory/user/asked/for \
 // RUN:     --sysroot=%t/basic_riscv32_esp_tree/lib/clang-runtimes \
+// RUN:     -ccc-install-dir %t/basic_riscv32_esp_tree/bin \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-RV32IMAC-FORCELD %s
 // CHECK-ESP-RV32IMAC-FORCELD: "-isysroot" "[[SYSROOT:[^"]*]]"
 // CHECK-ESP-RV32IMAC-FORCELD: riscv32-esp-elf-clang-ld{{(.exe)?}}"
@@ -80,7 +81,7 @@
 // CHECK-ESP-RV32IMAC-FORCELD-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-RV32IMAC-FORCELD-SAME: "-L[[SYSROOT]]{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
 // CHECK-ESP-RV32IMAC-FORCELD-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-RV32IMAC-FORCELD-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-FORCELD-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang %s -### 2>&1 --target=riscv32-esp-elf \
 // RUN:     -nostdlibinc -nobuiltininc \
@@ -96,7 +97,7 @@
 // RUN:     -rtlib=libgcc \
 // RUN:     --sysroot=%t/basic_riscv32_esp_tree/lib/clang-runtimes \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-RV32IMAC-LIBGCC %s
-// CHECK-ESP-RV32IMAC-LIBGCC-NOT: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-LIBGCC-NOT: "{{[^"]*}}libclang_rt.builtins.a"
 // CHECK-ESP-RV32IMAC-LIBGCC: "-lgcc"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=riscv32-esp-elf \
@@ -121,7 +122,7 @@
 // CHECK-ESP-RV32IMAC-DEFAULTSTDCXX-SAME: "-L[[SYSROOT]]{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
 // CHECK-ESP-RV32IMAC-DEFAULTSTDCXX-SAME: "-lstdc++"
 // CHECK-ESP-RV32IMAC-DEFAULTSTDCXX-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-RV32IMAC-DEFAULTSTDCXX-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-DEFAULTSTDCXX-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=riscv32-esp-elf \
 // RUN:     -stdlib=libc++ \
@@ -141,7 +142,7 @@
 // CHECK-ESP-RV32IMAC-LIBCXX-SAME: "-L[[SYSROOT]]{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
 // CHECK-ESP-RV32IMAC-LIBCXX-SAME: "-lc++" "-lc++abi" "-lunwind"
 // CHECK-ESP-RV32IMAC-LIBCXX-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-RV32IMAC-LIBCXX-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-RV32IMAC-LIBCXX-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_riscv32_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=riscv32-esp-elf \
 // RUN:     -nodefaultlibs \
@@ -297,8 +298,8 @@
 // RUN:     --target=riscv32-esp-elf \
 // RUN:     --sysroot=%T/baremetal_clang_rt_noarch \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-RV32_CLANGRT-NOARCH %s
-// CHECK-ESP-RV32_CLANGRT-NOARCH: "-lclang_rt.builtins"
-// CHECK-ESP-RV32_CLANGRT-NOARCH-NOT: "-lclang_rt.builtins-riscv32"
+// CHECK-ESP-RV32_CLANGRT-NOARCH: "{{[^"]*}}libclang_rt.builtins.a"
+// CHECK-ESP-RV32_CLANGRT-NOARCH-NOT: "{{[^"]*}}libclang_rt.builtins.a"
 // RUN: rm -rf %T/baremetal_clang_rt_arch
 // RUN: mkdir -p %T/baremetal_clang_rt_arch/lib
 // RUN: touch %T/baremetal_clang_rt_arch/lib/libclang_rt.builtins-riscv32.a
@@ -306,8 +307,8 @@
 // RUN:     --target=riscv32-esp-elf \
 // RUN:     --sysroot=%T/baremetal_clang_rt_arch \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-RV32-CLANGRT-ARCH %s
-// CHECK-ESP-RV32-CLANGRT-ARCH: "-lclang_rt.builtins-riscv32"
-// CHECK-ESP-RV32-CLANGRT-ARCH-NOT: "-lclang_rt.builtins"
+// CHECK-ESP-RV32-CLANGRT-ARCH: "{{[^"]*}}libclang_rt.builtins.a"
+// CHECK-ESP-RV32-CLANGRT-ARCH-NOT: "{{[^"]*}}libclang_rt.builtins.a"
 
 
 //////////////////// XTENSA /////////////////////////
@@ -354,7 +355,7 @@
 // CHECK-ESP-ESP32-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-ESP32-SAME: "-L[[SYSROOT]]{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
 // CHECK-ESP-ESP32-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-ESP32-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang %s -### 2>&1 --target=xtensa-esp-elf -fno-integrated-as \
 // RUN:     -L some/directory/user/asked/for \
@@ -376,11 +377,12 @@
 // CHECK-ESP-ESP32-FORCEAS-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-ESP32-FORCEAS-SAME: "-L[[SYSROOT]]{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
 // CHECK-ESP-ESP32-FORCEAS-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-ESP32-FORCEAS-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-FORCEAS-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang %s -### 2>&1 --target=xtensa-esp-elf --ld-path=xtensa-esp32-elf-clang-ld    \
 // RUN:     -L some/directory/user/asked/for \
 // RUN:     --sysroot=%t/basic_xtensa_esp_tree/lib/clang-runtimes \
+// RUN:     -ccc-install-dir %t/basic_xtensa_esp_tree/bin \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-ESP32-FORCELD %s
 // CHECK-ESP-ESP32-FORCELD: "-isysroot" "[[SYSROOT:[^"]*]]"
 // CHECK-ESP-ESP32-FORCELD-NEXT: xtensa-esp32-elf-clang-ld{{(.exe)?}}"
@@ -390,7 +392,7 @@
 // CHECK-ESP-ESP32-FORCELD-SAME: "-Lsome{{[/\\]+}}directory{{[/\\]+}}user{{[/\\]+}}asked{{[/\\]+}}for"
 // CHECK-ESP-ESP32-FORCELD-SAME: "-L[[SYSROOT]]{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
 // CHECK-ESP-ESP32-FORCELD-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-ESP32-FORCELD-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-FORCELD-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang %s -### 2>&1 --target=xtensa-esp-elf \
 // RUN:     -nostdlibinc -nobuiltininc \
@@ -406,7 +408,7 @@
 // RUN:     -rtlib=libgcc \
 // RUN:     --sysroot=%t/basic_xtensa_esp_tree/lib/clang-runtimes \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-ESP32-LIBGCC %s
-// CHECK-ESP-ESP32-LIBGCC-NOT: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-LIBGCC-NOT: "{{[^"]*}}libclang_rt.builtins.a"
 // CHECK-ESP-ESP32-LIBGCC: "-lgcc"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=xtensa-esp-elf \
@@ -430,7 +432,7 @@
 // CHECK-ESP-ESP32-DEFAULTSTDCXX-SAME: "-L[[SYSROOT]]{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
 // CHECK-ESP-ESP32-DEFAULTSTDCXX-SAME: "-lstdc++"
 // CHECK-ESP-ESP32-DEFAULTSTDCXX-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-ESP32-DEFAULTSTDCXX-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-DEFAULTSTDCXX-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=xtensa-esp-elf \
 // RUN:     -stdlib=libc++ \
@@ -449,7 +451,7 @@
 // CHECK-ESP-ESP32-LIBCXX-SAME: "-L[[SYSROOT]]{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
 // CHECK-ESP-ESP32-LIBCXX-SAME: "-lc++" "-lc++abi" "-lunwind"
 // CHECK-ESP-ESP32-LIBCXX-SAME: "-lm" "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group"
-// CHECK-ESP-ESP32-LIBCXX-SAME: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-LIBCXX-SAME: "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: %t/basic_xtensa_esp_tree/bin/clang --driver-mode=g++ %s -### 2>&1 --target=xtensa-esp-elf \
 // RUN:     -nodefaultlibs \
@@ -610,8 +612,8 @@
 // RUN:     --target=xtensa-esp-elf \
 // RUN:     --sysroot=%T/baremetal_clang_rt_noarch \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-ESP32_CLANGRT-NOARCH %s
-// CHECK-ESP-ESP32_CLANGRT-NOARCH: "-lclang_rt.builtins"
-// CHECK-ESP-ESP32_CLANGRT-NOARCH-NOT: "-lclang_rt.builtins-xtensa"
+// CHECK-ESP-ESP32_CLANGRT-NOARCH: "{{[^"]*}}libclang_rt.builtins.a"
+// CHECK-ESP-ESP32_CLANGRT-NOARCH-NOT: "{{[^"]*}}libclang_rt.builtins.a"
 
 // Check that compiler-rt library with the arch filename suffix will be
 // used if present.
@@ -622,5 +624,5 @@
 // RUN:     --target=xtensa-esp-elf \
 // RUN:     --sysroot=%T/baremetal_clang_rt_arch \
 // RUN:   | FileCheck --check-prefix=CHECK-ESP-ESP32-CLANGRT-ARCH %s
-// CHECK-ESP-ESP32-CLANGRT-ARCH: "-lclang_rt.builtins-xtensa"
-// CHECK-ESP-ESP32-CLANGRT-ARCH-NOT: "-lclang_rt.builtins"
+// CHECK-ESP-ESP32-CLANGRT-ARCH: "{{[^"]*}}libclang_rt.builtins.a"
+// CHECK-ESP-ESP32-CLANGRT-ARCH-NOT: "{{[^"]*}}libclang_rt.builtins.a"

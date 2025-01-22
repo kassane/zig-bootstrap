@@ -104,6 +104,7 @@ pub const SIOCGIFINDEX = system.SIOCGIFINDEX;
 pub const SO = system.SO;
 pub const SOCK = system.SOCK;
 pub const SOL = system.SOL;
+pub const IFF = system.IFF;
 pub const STDERR_FILENO = system.STDERR_FILENO;
 pub const STDIN_FILENO = system.STDIN_FILENO;
 pub const STDOUT_FILENO = system.STDOUT_FILENO;
@@ -154,7 +155,6 @@ pub const socklen_t = system.socklen_t;
 pub const stack_t = system.stack_t;
 pub const time_t = system.time_t;
 pub const timespec = system.timespec;
-pub const timestamp_t = system.timestamp_t;
 pub const timeval = system.timeval;
 pub const timezone = system.timezone;
 pub const ucontext_t = system.ucontext_t;
@@ -798,6 +798,13 @@ pub const ReadError = error{
     /// In WASI, this error occurs when the file descriptor does
     /// not hold the required rights to read from it.
     AccessDenied,
+
+    /// This error occurs in Linux if the process to be read from
+    /// no longer exists.
+    ProcessNotFound,
+
+    /// Unable to read file due to lock.
+    LockViolation,
 } || UnexpectedError;
 
 /// Returns the number of bytes that were read, which can be less than
@@ -854,6 +861,7 @@ pub fn read(fd: fd_t, buf: []u8) ReadError!usize {
             .INTR => continue,
             .INVAL => unreachable,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .CANCELED => return error.Canceled,
             .BADF => return error.NotOpenForReading, // Can be a race condition.
@@ -917,6 +925,7 @@ pub fn readv(fd: fd_t, iov: []const iovec) ReadError!usize {
             .INTR => continue,
             .INVAL => unreachable,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForReading, // can be a race condition
             .IO => return error.InputOutput,
@@ -996,6 +1005,7 @@ pub fn pread(fd: fd_t, buf: []u8, offset: u64) PReadError!usize {
             .INTR => continue,
             .INVAL => unreachable,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForReading, // Can be a race condition.
             .IO => return error.InputOutput,
@@ -1133,6 +1143,7 @@ pub fn preadv(fd: fd_t, iov: []const iovec, offset: u64) PReadError!usize {
             .INTR => continue,
             .INVAL => unreachable,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForReading, // can be a race condition
             .IO => return error.InputOutput,
@@ -1158,8 +1169,7 @@ pub const WriteError = error{
     DeviceBusy,
     InvalidArgument,
 
-    /// In WASI, this error may occur when the file descriptor does
-    /// not hold the required rights to write to it.
+    /// File descriptor does not hold the required rights to write to it.
     AccessDenied,
     BrokenPipe,
     SystemResources,
@@ -1176,6 +1186,13 @@ pub const WriteError = error{
 
     /// Connection reset by peer.
     ConnectionResetByPeer,
+
+    /// This error occurs in Linux if the process being written to
+    /// no longer exists.
+    ProcessNotFound,
+    /// This error occurs when a device gets disconnected before or mid-flush
+    /// while it's being written to - errno(6): No such device or address.
+    NoDevice,
 } || UnexpectedError;
 
 /// Write to a file descriptor.
@@ -1243,6 +1260,7 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
             .INTR => continue,
             .INVAL => return error.InvalidArgument,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForWriting, // can be a race condition.
             .DESTADDRREQ => unreachable, // `connect` was never called.
@@ -1250,10 +1268,12 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
             .FBIG => return error.FileTooBig,
             .IO => return error.InputOutput,
             .NOSPC => return error.NoSpaceLeft,
+            .ACCES => return error.AccessDenied,
             .PERM => return error.AccessDenied,
             .PIPE => return error.BrokenPipe,
             .CONNRESET => return error.ConnectionResetByPeer,
             .BUSY => return error.DeviceBusy,
+            .NXIO => return error.NoDevice,
             else => |err| return unexpectedErrno(err),
         }
     }
@@ -1315,6 +1335,7 @@ pub fn writev(fd: fd_t, iov: []const iovec_const) WriteError!usize {
             .INTR => continue,
             .INVAL => return error.InvalidArgument,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForWriting, // Can be a race condition.
             .DESTADDRREQ => unreachable, // `connect` was never called.
@@ -1404,6 +1425,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
             .INTR => continue,
             .INVAL => return error.InvalidArgument,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForWriting, // Can be a race condition.
             .DESTADDRREQ => unreachable, // `connect` was never called.
@@ -1488,6 +1510,7 @@ pub fn pwritev(fd: fd_t, iov: []const iovec_const, offset: u64) PWriteError!usiz
             .INTR => continue,
             .INVAL => return error.InvalidArgument,
             .FAULT => unreachable,
+            .NOENT => return error.ProcessNotFound,
             .AGAIN => return error.WouldBlock,
             .BADF => return error.NotOpenForWriting, // Can be a race condition.
             .DESTADDRREQ => unreachable, // `connect` was never called.
@@ -1514,6 +1537,12 @@ pub const OpenError = error{
     ProcessFdQuotaExceeded,
     SystemFdQuotaExceeded,
     NoDevice,
+    /// Either:
+    /// * One of the path components does not exist.
+    /// * Cwd was used, but cwd has been deleted.
+    /// * The path associated with the open directory handle has been deleted.
+    /// * On macOS, multiple processes or threads raced to create the same file
+    ///   with `O.EXCL` set to `false`.
     FileNotFound,
 
     /// The path exceeded `max_path_bytes` bytes.
@@ -1798,6 +1827,7 @@ pub fn openatZ(dir_fd: fd_t, file_path: [*:0]const u8, flags: O, mode: mode_t) O
             .OPNOTSUPP => return error.FileLocksNotSupported,
             .AGAIN => return error.WouldBlock,
             .TXTBSY => return error.FileBusy,
+            .NXIO => return error.NoDevice,
             .ILSEQ => |err| if (native_os == .wasi)
                 return error.InvalidUtf8
             else
@@ -2926,6 +2956,7 @@ pub fn mkdiratW(dir_fd: fd_t, sub_path_w: []const u16, mode: u32) MakeDirError!v
     }) catch |err| switch (err) {
         error.IsDir => return error.Unexpected,
         error.PipeBusy => return error.Unexpected,
+        error.NoDevice => return error.Unexpected,
         error.WouldBlock => return error.Unexpected,
         error.AntivirusInterference => return error.Unexpected,
         else => |e| return e,
@@ -3020,6 +3051,7 @@ pub fn mkdirW(dir_path_w: []const u16, mode: u32) MakeDirError!void {
     }) catch |err| switch (err) {
         error.IsDir => return error.Unexpected,
         error.PipeBusy => return error.Unexpected,
+        error.NoDevice => return error.Unexpected,
         error.WouldBlock => return error.Unexpected,
         error.AntivirusInterference => return error.Unexpected,
         else => |e| return e,
@@ -4544,13 +4576,16 @@ pub const FanotifyInitError = error{
     SystemFdQuotaExceeded,
     SystemResources,
     PermissionDenied,
+    /// The kernel does not recognize the flags passed, likely because it is an
+    /// older version.
+    UnsupportedFlags,
 } || UnexpectedError;
 
 pub fn fanotify_init(flags: std.os.linux.fanotify.InitFlags, event_f_flags: u32) FanotifyInitError!i32 {
     const rc = system.fanotify_init(flags, event_f_flags);
     switch (errno(rc)) {
         .SUCCESS => return @intCast(rc),
-        .INVAL => unreachable,
+        .INVAL => return error.UnsupportedFlags,
         .MFILE => return error.ProcessFdQuotaExceeded,
         .NFILE => return error.SystemFdQuotaExceeded,
         .NOMEM => return error.SystemResources,
@@ -5517,7 +5552,7 @@ pub fn dl_iterate_phdr(
 
     if (builtin.link_libc) {
         switch (system.dl_iterate_phdr(struct {
-            fn callbackC(info: *dl_phdr_info, size: usize, data: ?*anyopaque) callconv(.C) c_int {
+            fn callbackC(info: *dl_phdr_info, size: usize, data: ?*anyopaque) callconv(.c) c_int {
                 const context_ptr: *const Context = @ptrCast(@alignCast(data));
                 callback(info, size, context_ptr.*) catch |err| return @intFromError(err);
                 return 0;
@@ -5592,7 +5627,7 @@ pub const ClockGetTimeError = error{UnsupportedClock} || UnexpectedError;
 /// TODO: change this to return the timespec as a return value
 pub fn clock_gettime(clock_id: clockid_t, tp: *timespec) ClockGetTimeError!void {
     if (native_os == .wasi and !builtin.link_libc) {
-        var ts: timestamp_t = undefined;
+        var ts: wasi.timestamp_t = undefined;
         switch (system.clock_time_get(clock_id, 1, &ts)) {
             .SUCCESS => {
                 tp.* = .{
@@ -5633,7 +5668,7 @@ pub fn clock_gettime(clock_id: clockid_t, tp: *timespec) ClockGetTimeError!void 
 
 pub fn clock_getres(clock_id: clockid_t, res: *timespec) ClockGetTimeError!void {
     if (native_os == .wasi and !builtin.link_libc) {
-        var ts: timestamp_t = undefined;
+        var ts: wasi.timestamp_t = undefined;
         switch (system.clock_res_get(@bitCast(clock_id), &ts)) {
             .SUCCESS => res.* = .{
                 .sec = @intCast(ts / std.time.ns_per_s),
@@ -6763,6 +6798,7 @@ pub const MemFdCreateError = error{
     OutOfMemory,
     /// Either the name provided exceeded `NAME_MAX`, or invalid flags were passed.
     NameTooLong,
+    SystemOutdated,
 } || UnexpectedError;
 
 pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
@@ -6783,7 +6819,7 @@ pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
             }
         },
         .freebsd => {
-            if (comptime builtin.os.version_range.semver.max.order(.{ .major = 13, .minor = 0, .patch = 0 }) == .lt)
+            if (builtin.os.version_range.semver.max.order(.{ .major = 13, .minor = 0, .patch = 0 }) == .lt)
                 @compileError("memfd_create is unavailable on FreeBSD < 13.0");
             const rc = system.memfd_create(name, flags);
             switch (errno(rc)) {

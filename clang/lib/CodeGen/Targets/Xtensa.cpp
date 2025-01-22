@@ -33,8 +33,8 @@ public:
 
   ABIArgInfo classifyReturnType(QualType RetTy) const;
 
-  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                    QualType Ty) const override;
+  RValue EmitVAArg(CodeGenFunction &CGF, Address VAListAddr, QualType Ty,
+                   AggValueSlot Slot) const override;
 
   ABIArgInfo extendType(QualType Ty) const;
 };
@@ -153,8 +153,8 @@ ABIArgInfo XtensaABIInfo::classifyReturnType(QualType RetTy) const {
   return DefaultABIInfo::classifyReturnType(RetTy);
 }
 
-Address XtensaABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                                 QualType Ty) const {
+RValue XtensaABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                                 QualType Ty, AggValueSlot Slot) const {
   // The va_list structure memory layout:
   // struct __va_list_tag {
   //   int32_t *va_stk;
@@ -207,7 +207,7 @@ Address XtensaABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
 
     CharUnits RegSize = CharUnits::fromQuantity(4);
     RegSaveArea =
-        Address(Builder.CreateInBoundsGEP(CGF.Int32Ty, RegSaveArea.getPointer(),
+        Address(Builder.CreateInBoundsGEP(CGF.Int32Ty, RegSaveArea.emitRawPointer(CGF),
                                           ARIndex),
                 CGF.Int32Ty, RegSaveArea.getAlignment().alignmentOfArrayElement(RegSize));
     RegAddr = RegSaveArea.withElementType(DirectTy);
@@ -233,7 +233,7 @@ Address XtensaABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
     CharUnits RegSize = CharUnits::fromQuantity(4);
     OverflowArea =
         Address(Builder.CreateInBoundsGEP(
-                    CGF.Int32Ty, OverflowArea.getPointer(), ARIndexCorr),
+                    CGF.Int32Ty, OverflowArea.emitRawPointer(CGF), ARIndexCorr),
                 CGF.Int32Ty, OverflowArea.getAlignment().alignmentOfArrayElement(RegSize));
     MemAddr = OverflowArea.withElementType(DirectTy);
     CGF.EmitBranch(Cont);
@@ -245,7 +245,7 @@ Address XtensaABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
   Address Result =
       emitMergePHI(CGF, RegAddr, UsingRegSaveArea, MemAddr, UsingOverflow, "");
 
-  return Result;
+  return CGF.EmitLoadOfAnyValue(CGF.MakeAddrLValue(Result, Ty), Slot);
 }
 
 ABIArgInfo XtensaABIInfo::extendType(QualType Ty) const {

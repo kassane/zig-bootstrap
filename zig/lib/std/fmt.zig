@@ -224,7 +224,6 @@ pub const Placeholder = struct {
     pub fn parse(comptime str: anytype) Placeholder {
         const view = std.unicode.Utf8View.initComptime(&str);
         comptime var parser = Parser{
-            .buf = &str,
             .iter = view.iterator(),
         };
 
@@ -311,10 +310,13 @@ pub const Specifier = union(enum) {
     named: []const u8,
 };
 
+/// A stream based parser for format strings.
+///
+/// Allows to implement formatters compatible with std.fmt without replicating
+/// the standard library behavior.
 pub const Parser = struct {
-    buf: []const u8,
     pos: usize = 0,
-    iter: std.unicode.Utf8Iterator = undefined,
+    iter: std.unicode.Utf8Iterator,
 
     // Returns a decimal number or null if the current character is not a
     // digit
@@ -386,7 +388,7 @@ pub const Parser = struct {
         const original_i = self.iter.i;
         defer self.iter.i = original_i;
 
-        var i = 0;
+        var i: usize = 0;
         var code_point: ?u21 = null;
         while (i <= n) : (i += 1) {
             code_point = self.iter.nextCodepoint();
@@ -432,7 +434,7 @@ pub fn formatAddress(value: anytype, options: FormatOptions, writer: anytype) @T
     switch (@typeInfo(T)) {
         .pointer => |info| {
             try writer.writeAll(@typeName(info.child) ++ "@");
-            if (info.size == .Slice)
+            if (info.size == .slice)
                 try formatInt(@intFromPtr(value.ptr), 16, .lower, FormatOptions{}, writer)
             else
                 try formatInt(@intFromPtr(value), 16, .lower, FormatOptions{}, writer);
@@ -456,14 +458,14 @@ const ANY = "any";
 
 pub fn defaultSpec(comptime T: type) [:0]const u8 {
     switch (@typeInfo(T)) {
-        .array => |_| return ANY,
+        .array, .vector => return ANY,
         .pointer => |ptr_info| switch (ptr_info.size) {
-            .One => switch (@typeInfo(ptr_info.child)) {
-                .array => |_| return ANY,
+            .one => switch (@typeInfo(ptr_info.child)) {
+                .array => return ANY,
                 else => {},
             },
-            .Many, .C => return "*",
-            .Slice => return ANY,
+            .many, .c => return "*",
+            .slice => return ANY,
         },
         .optional => |info| return "?" ++ defaultSpec(info.child),
         .error_union => |info| return "!" ++ defaultSpec(info.payload),
@@ -622,16 +624,16 @@ pub fn formatType(
             try writer.writeAll(" }");
         },
         .pointer => |ptr_info| switch (ptr_info.size) {
-            .One => switch (@typeInfo(ptr_info.child)) {
+            .one => switch (@typeInfo(ptr_info.child)) {
                 .array, .@"enum", .@"union", .@"struct" => {
                     return formatType(value.*, actual_fmt, options, writer, max_depth);
                 },
                 else => return format(writer, "{s}@{x}", .{ @typeName(ptr_info.child), @intFromPtr(value) }),
             },
-            .Many, .C => {
+            .many, .c => {
                 if (actual_fmt.len == 0)
                     @compileError("cannot format pointer without a specifier (i.e. {s} or {*})");
-                if (ptr_info.sentinel) |_| {
+                if (ptr_info.sentinel() != null) {
                     return formatType(mem.span(value), actual_fmt, options, writer, max_depth);
                 }
                 if (actual_fmt[0] == 's' and ptr_info.child == u8) {
@@ -639,7 +641,7 @@ pub fn formatType(
                 }
                 invalidFmtError(fmt, value);
             },
-            .Slice => {
+            .slice => {
                 if (actual_fmt.len == 0)
                     @compileError("cannot format slice without a specifier (i.e. {s} or {any})");
                 if (max_depth == 0) {
@@ -680,7 +682,7 @@ pub fn formatType(
             try writer.writeAll("{ ");
             var i: usize = 0;
             while (i < info.len) : (i += 1) {
-                try formatValue(value[i], actual_fmt, options, writer);
+                try formatType(value[i], actual_fmt, options, writer, max_depth - 1);
                 if (i < info.len - 1) {
                     try writer.writeAll(", ");
                 }
@@ -1197,7 +1199,7 @@ pub fn formatInt(
     if (base == 10) {
         while (a >= 100) : (a = @divTrunc(a, 100)) {
             index -= 2;
-            buf[index..][0..2].* = digits2(@as(usize, @intCast(a % 100)));
+            buf[index..][0..2].* = digits2(@intCast(a % 100));
         }
 
         if (a < 10) {
@@ -1205,13 +1207,13 @@ pub fn formatInt(
             buf[index] = '0' + @as(u8, @intCast(a));
         } else {
             index -= 2;
-            buf[index..][0..2].* = digits2(@as(usize, @intCast(a)));
+            buf[index..][0..2].* = digits2(@intCast(a));
         }
     } else {
         while (true) {
             const digit = a % base;
             index -= 1;
-            buf[index] = digitToChar(@as(u8, @intCast(digit)), case);
+            buf[index] = digitToChar(@intCast(digit), case);
             a /= base;
             if (a == 0) break;
         }
@@ -1242,11 +1244,7 @@ pub fn formatIntBuf(out_buf: []u8, value: anytype, base: u8, case: Case, options
 
 // Converts values in the range [0, 100) to a string.
 pub fn digits2(value: usize) [2]u8 {
-    return ("0001020304050607080910111213141516171819" ++
-        "2021222324252627282930313233343536373839" ++
-        "4041424344454647484950515253545556575859" ++
-        "6061626364656667686970717273747576777879" ++
-        "8081828384858687888990919293949596979899")[value * 2 ..][0..2].*;
+    return "00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899"[value * 2 ..][0..2].*;
 }
 
 const FormatDurationData = struct {
@@ -2598,6 +2596,7 @@ test "positional/alignment/width/precision" {
 }
 
 test "vector" {
+    if ((builtin.cpu.arch == .armeb or builtin.cpu.arch == .thumbeb) and builtin.zig_backend == .stage2_llvm) return error.SkipZigTest; // https://github.com/ziglang/zig/issues/22060
     if (builtin.target.cpu.arch == .riscv64) {
         // https://github.com/ziglang/zig/issues/4486
         return error.SkipZigTest;
@@ -2612,6 +2611,22 @@ test "vector" {
     try expectFmt("{    -2,    -1,    +0,    +1 }", "{d:5}", .{vi64});
     try expectFmt("{ 1000, 2000, 3000, 4000 }", "{}", .{vu64});
     try expectFmt("{ 3e8, 7d0, bb8, fa0 }", "{x}", .{vu64});
+
+    const x: [4]u64 = undefined;
+    const vp: @Vector(4, *const u64) = [_]*const u64{ &x[0], &x[1], &x[2], &x[3] };
+    const vop: @Vector(4, ?*const u64) = [_]?*const u64{ &x[0], null, null, &x[3] };
+
+    var expect_buffer: [@sizeOf(usize) * 2 * 4 + 64]u8 = undefined;
+    try expectFmt(try bufPrint(
+        &expect_buffer,
+        "{{ {}, {}, {}, {} }}",
+        .{ &x[0], &x[1], &x[2], &x[3] },
+    ), "{}", .{vp});
+    try expectFmt(try bufPrint(
+        &expect_buffer,
+        "{{ {?}, null, null, {?} }}",
+        .{ &x[0], &x[3] },
+    ), "{any}", .{vop});
 }
 
 test "enum-literal" {

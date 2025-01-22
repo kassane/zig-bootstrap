@@ -81,7 +81,7 @@ public:
   StringRef getPassName() const override { return "Xtensa Hardware Loops"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineLoopInfo>();
+    AU.addRequired<MachineLoopInfoWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -123,7 +123,7 @@ bool XtensaHardwareLoops::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   bool Changed = false;
-  MLI = &getAnalysis<MachineLoopInfo>();
+  MLI = &getAnalysis<MachineLoopInfoWrapperPass>().getLI();
   MRI = &MF.getRegInfo();
   STI = &MF.getSubtarget<XtensaSubtarget>();
   TII = STI->getInstrInfo();

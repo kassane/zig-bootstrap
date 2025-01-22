@@ -1,7 +1,5 @@
 //===-- XtensaRegisterInfo.h - Xtensa Register Information Impl -*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -26,7 +24,7 @@ class TargetRegisterClass;
 class XtensaInstrInfo;
 class XtensaSubtarget;
 
-struct XtensaRegisterInfo : public XtensaGenRegisterInfo {
+class XtensaRegisterInfo : public XtensaGenRegisterInfo {
 public:
   const XtensaSubtarget &Subtarget;
 
@@ -49,19 +47,16 @@ public:
   const uint32_t *getCallPreservedMask(const MachineFunction &MF,
                                        CallingConv::ID) const override;
   BitVector getReservedRegs(const MachineFunction &MF) const override;
+
   bool eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
-  Register getFrameRegister(const MachineFunction &MF) const override;
 
-private:
-  bool eliminateFI(MachineBasicBlock::iterator II, unsigned OpNo,
-                   int FrameIndex, uint64_t StackSize, int64_t SPOffset,
-                   RegScavenger *RS) const;
+  Register getFrameRegister(const MachineFunction &MF) const override;
 
   bool requiresFrameIndexReplacementScavenging(const MachineFunction &MF) const override;
 };
 
 } // end namespace llvm
 
-#endif /* LLVM_LIB_TARGET_XTENSA_REGISTERINFO_H */
+#endif // LLVM_LIB_TARGET_XTENSA_REGISTERINFO_H

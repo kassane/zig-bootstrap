@@ -88,11 +88,11 @@ pub const MutableValue = union(enum) {
                 .ptr = (try s.ptr.intern(pt, arena)).toIntern(),
                 .len = (try s.len.intern(pt, arena)).toIntern(),
             } }),
-            .un => |u| try pt.intern(.{ .un = .{
+            .un => |u| try pt.internUnion(.{
                 .ty = u.ty,
                 .tag = u.tag,
                 .val = (try u.payload.intern(pt, arena)).toIntern(),
-            } }),
+            }),
         });
     }
 
@@ -256,7 +256,7 @@ pub const MutableValue = union(enum) {
                     },
                     .pointer => {
                         const ptr_ty = ip.indexToKey(ty_ip).ptr_type;
-                        if (ptr_ty.flags.size != .Slice) return;
+                        if (ptr_ty.flags.size != .slice) return;
                         const ptr = try arena.create(MutableValue);
                         const len = try arena.create(MutableValue);
                         ptr.* = .{ .interned = try pt.intern(.{ .undef = ip.slicePtrType(ty_ip) }) };

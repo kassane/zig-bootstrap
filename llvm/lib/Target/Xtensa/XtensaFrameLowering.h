@@ -1,7 +1,5 @@
 //===- XtensaFrameLowering.h - Define frame lowering for Xtensa --*- C++ -*-==//
 //
-//                     The LLVM Compiler Infrastructure
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -16,10 +14,15 @@
 namespace llvm {
 class XtensaTargetMachine;
 class XtensaSubtarget;
+class XtensaInstrInfo;
+class XtensaRegisterInfo;
 
 class XtensaFrameLowering : public TargetFrameLowering {
+  const XtensaInstrInfo &TII;
+  const XtensaRegisterInfo *TRI;
+
 public:
-  XtensaFrameLowering();
+  XtensaFrameLowering(const XtensaSubtarget &STI);
 
   bool hasFP(const MachineFunction &MF) const override;
 

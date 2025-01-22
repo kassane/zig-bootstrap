@@ -795,7 +795,6 @@ pub const Mutable = struct {
         const endian_mask: usize = (@sizeOf(Limb) - 1) << 3;
 
         const bytes = std.mem.sliceAsBytes(r.limbs);
-        var bits = std.packed_int_array.PackedIntSliceEndian(u1, .little).init(bytes, limbs_required * @bitSizeOf(Limb));
 
         var k: usize = 0;
         while (k < ((bit_count + 1) / 2)) : (k += 1) {
@@ -809,17 +808,17 @@ pub const Mutable = struct {
                 rev_i ^= endian_mask;
             }
 
-            const bit_i = bits.get(i);
-            const bit_rev_i = bits.get(rev_i);
-            bits.set(i, bit_rev_i);
-            bits.set(rev_i, bit_i);
+            const bit_i = std.mem.readPackedInt(u1, bytes, i, .little);
+            const bit_rev_i = std.mem.readPackedInt(u1, bytes, rev_i, .little);
+            std.mem.writePackedInt(u1, bytes, i, bit_rev_i, .little);
+            std.mem.writePackedInt(u1, bytes, rev_i, bit_i, .little);
         }
 
         // Calculate signed-magnitude representation for output
         if (signedness == .signed) {
             const last_bit = switch (native_endian) {
-                .little => bits.get(bit_count - 1),
-                .big => bits.get((bit_count - 1) ^ endian_mask),
+                .little => std.mem.readPackedInt(u1, bytes, bit_count - 1, .little),
+                .big => std.mem.readPackedInt(u1, bytes, (bit_count - 1) ^ endian_mask, .little),
             };
             if (last_bit == 1) {
                 r.bitNotWrap(r.toConst(), .unsigned, bit_count); // Bitwise NOT.
@@ -2521,12 +2520,13 @@ pub const Const = struct {
         return order(a, b) == .eq;
     }
 
+    /// Returns the number of leading zeros in twos-complement form.
     pub fn clz(a: Const, bits: Limb) Limb {
-        // Limbs are stored in little-endian order but we need
-        // to iterate big-endian.
+        // Limbs are stored in little-endian order but we need to iterate big-endian.
+        if (!a.positive and !a.eqlZero()) return 0;
         var total_limb_lz: Limb = 0;
         var i: usize = a.limbs.len;
-        const bits_per_limb = @sizeOf(Limb) * 8;
+        const bits_per_limb = @bitSizeOf(Limb);
         while (i != 0) {
             i -= 1;
             const limb = a.limbs[i];
@@ -2538,13 +2538,15 @@ pub const Const = struct {
         return total_limb_lz + bits - total_limb_bits;
     }
 
+    /// Returns the number of trailing zeros in twos-complement form.
     pub fn ctz(a: Const, bits: Limb) Limb {
-        // Limbs are stored in little-endian order.
+        // Limbs are stored in little-endian order. Converting a negative number to twos-complement
+        // flips all bits above the lowest set bit, which does not affect the trailing zero count.
         var result: Limb = 0;
         for (a.limbs) |limb| {
             const limb_tz = @ctz(limb);
             result += limb_tz;
-            if (limb_tz != @sizeOf(Limb) * 8) break;
+            if (limb_tz != @bitSizeOf(Limb)) break;
         }
         return @min(result, bits);
     }
@@ -2842,8 +2844,8 @@ pub const Managed = struct {
         return a.toConst().orderAbs(b.toConst());
     }
 
-    /// Returns math.Order.lt, math.Order.eq, math.Order.gt if a < b, a == b or a
-    /// > b respectively.
+    /// Returns math.Order.lt, math.Order.eq, math.Order.gt if a < b, a == b or a > b
+    /// respectively.
     pub fn order(a: Managed, b: Managed) math.Order {
         return a.toConst().order(b.toConst());
     }

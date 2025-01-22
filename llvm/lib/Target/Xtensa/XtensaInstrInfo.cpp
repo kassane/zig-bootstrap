@@ -26,7 +26,7 @@
 
 using namespace llvm;
 
-static inline const MachineInstrBuilder &
+static const MachineInstrBuilder &
 addFrameReference(const MachineInstrBuilder &MIB, int FI) {
   MachineInstr *MI = MIB;
   MachineFunction &MF = *MI->getParent()->getParent();
@@ -46,9 +46,33 @@ addFrameReference(const MachineInstrBuilder &MIB, int FI) {
   return MIB.addFrameIndex(FI).addImm(Offset).addMemOperand(MMO);
 }
 
-XtensaInstrInfo::XtensaInstrInfo(XtensaSubtarget &sti)
+XtensaInstrInfo::XtensaInstrInfo(const XtensaSubtarget &STI)
     : XtensaGenInstrInfo(Xtensa::ADJCALLSTACKDOWN, Xtensa::ADJCALLSTACKUP),
-      RI(sti), STI(sti) {}
+      RI(STI), STI(STI) {}
+
+Register XtensaInstrInfo::isLoadFromStackSlot(const MachineInstr &MI,
+                                              int &FrameIndex) const {
+  if (MI.getOpcode() == Xtensa::L32I) {
+    if (MI.getOperand(1).isFI() && MI.getOperand(2).isImm() &&
+        MI.getOperand(2).getImm() == 0) {
+      FrameIndex = MI.getOperand(1).getIndex();
+      return MI.getOperand(0).getReg();
+    }
+  }
+  return Register();
+}
+
+Register XtensaInstrInfo::isStoreToStackSlot(const MachineInstr &MI,
+                                             int &FrameIndex) const {
+  if (MI.getOpcode() == Xtensa::S32I) {
+    if (MI.getOperand(1).isFI() && MI.getOperand(2).isImm() &&
+        MI.getOperand(2).getImm() == 0) {
+      FrameIndex = MI.getOperand(1).getIndex();
+      return MI.getOperand(0).getReg();
+    }
+  }
+  return Register();
+}
 
 /// Adjust SP by Amount bytes.
 void XtensaInstrInfo::adjustStackPtr(unsigned SP, int64_t Amount,
@@ -65,9 +89,9 @@ void XtensaInstrInfo::adjustStackPtr(unsigned SP, int64_t Amount,
   // create virtual reg to store immediate
   unsigned Reg = RegInfo.createVirtualRegister(RC);
 
-  if (isInt<8>(Amount)) // addi sp, sp, amount
+  if (isInt<8>(Amount)) { // addi sp, sp, amount
     BuildMI(MBB, I, DL, get(Xtensa::ADDI), Reg).addReg(SP).addImm(Amount);
-  else { // Expand immediate that doesn't fit in 12-bit.
+  } else { // Expand immediate that doesn't fit in 8-bit.
     unsigned Reg1;
     loadImmediate(MBB, I, &Reg1, Amount);
     BuildMI(MBB, I, DL, get(Xtensa::ADD), Reg)
@@ -123,32 +147,30 @@ void XtensaInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
            Xtensa::AE_VALIGNRegClass.contains(DestReg, SrcReg))
     Opcode = Xtensa::AE_MOVALIGN;
   else
-    llvm_unreachable("Impossible reg-to-reg copy");
+    report_fatal_error("Impossible reg-to-reg copy");
 
   BuildMI(MBB, MBBI, DL, get(Opcode), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
-void XtensaInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-                                          MachineBasicBlock::iterator MBBI,
-                                          Register SrcReg, bool isKill,
-                                          int FrameIdx,
-                                          const TargetRegisterClass *RC,
-                                          const TargetRegisterInfo *TRI,
-                                          Register VReg) const {
+void XtensaInstrInfo::storeRegToStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, Register SrcReg,
+    bool isKill, int FrameIdx, const TargetRegisterClass *RC,
+    const TargetRegisterInfo *TRI, Register VReg) const {
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
   unsigned LoadOpcode, StoreOpcode;
   getLoadStoreOpcodes(RC, LoadOpcode, StoreOpcode, FrameIdx);
-  addFrameReference(BuildMI(MBB, MBBI, DL, get(StoreOpcode))
-                        .addReg(SrcReg, getKillRegState(isKill)),
-                    FrameIdx);
+  MachineInstrBuilder MIB = BuildMI(MBB, MBBI, DL, get(StoreOpcode))
+                                .addReg(SrcReg, getKillRegState(isKill));
+  addFrameReference(MIB, FrameIdx);
 }
 
-void XtensaInstrInfo::loadRegFromStackSlot(
-    MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, Register DestReg,
-    int FrameIdx, const TargetRegisterClass *RC,
-    const TargetRegisterInfo *TRI,
-    Register VReg) const {
+void XtensaInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                           MachineBasicBlock::iterator MBBI,
+                                           Register DestReg, int FrameIdx,
+                                           const TargetRegisterClass *RC,
+                                           const TargetRegisterInfo *TRI,
+                                           Register VReg) const {
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
   unsigned LoadOpcode, StoreOpcode;
   getLoadStoreOpcodes(RC, LoadOpcode, StoreOpcode, FrameIdx);
@@ -195,7 +217,7 @@ XtensaInstrInfo::buildLoadImmediate(MachineBasicBlock &MBB,
         .addReg(Reg)
         .addImm(High);
   } else if (Value >= -4294967296LL && Value <= 4294967295LL) {
-    // 32 bit arbirary constant
+    // 32 bit arbitrary constant
     MachineConstantPool *MCP = MBB.getParent()->getConstantPool();
     uint64_t UVal = ((uint64_t)Value) & 0xFFFFFFFFLL;
     const Constant *CVal = ConstantInt::get(
@@ -208,7 +230,7 @@ XtensaInstrInfo::buildLoadImmediate(MachineBasicBlock &MBB,
   } else {
     // use L32R to let assembler load immediate best
     // TODO replace to L32R
-    llvm_unreachable("Unsupported load immediate value");
+    report_fatal_error("Unsupported load immediate value");
   }
 }
 
@@ -790,4 +812,3 @@ bool XtensaInstrInfo::isBranch(const MachineBasicBlock::iterator &MI,
     return false;
   }
 }
-

@@ -62,10 +62,10 @@ EspBareMetal::EspBareMetal(const Driver &D, const llvm::Triple &Triple,
       }
     }
     if (IsIntegratedAsm) {
-      if (Args.getLastArgValue(options::OPT_x).equals("assembler"))
+      if (Args.getLastArgValue(options::OPT_x) == "assembler")
         IsIntegratedAsm = false;
 
-      if (Args.getLastArgValue(options::OPT_x).equals("assembler-with-cpp"))
+      if (Args.getLastArgValue(options::OPT_x) == "assembler-with-cpp")
         IsIntegratedAsm = false;
     }
   }
@@ -115,7 +115,7 @@ static void getRISCV32MultilibFlags(const llvm::Triple &Triple,
                                           const llvm::opt::ArgList &Args,
                                           Multilib::flags_list &Result) {
 
-  Result.push_back("-march=" + riscv::getRISCVArch(Args, Triple).str());
+  Result.push_back("-march=" + riscv::getRISCVArch(Args, Triple));
   Result.push_back("-mabi=" + riscv::getRISCVABI(Args, Triple).str());
 }
 

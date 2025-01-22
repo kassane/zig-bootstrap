@@ -27,12 +27,12 @@ add_llvm_target(XtensaCodeGen
   XtensaISelLowering.cpp
   XtensaS3ISelLowering.cpp
   XtensaMachineFunctionInfo.cpp
-  XtensaMCInstLower.cpp
   XtensaRegisterInfo.cpp
   XtensaSizeReductionPass.cpp
   XtensaSubtarget.cpp
   XtensaTargetMachine.cpp
   XtensaTargetObjectFile.cpp
+  XtensaUtils.cpp
   XtensaTargetTransformInfo.cpp
   XtensaBRegFixupPass.cpp
 

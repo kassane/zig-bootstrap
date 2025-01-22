@@ -39,9 +39,10 @@ public:
 
   TargetTransformInfo getTargetTransformInfo(const Function &F) const override;
 
-  const XtensaSubtarget *getSubtargetImpl() const { return &Subtarget; }
   const XtensaSubtarget *getSubtargetImpl(const Function &F) const override;
+
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+
   TargetLoweringObjectFile *getObjFileLowering() const override {
     return TLOF.get();
   }
@@ -50,7 +51,7 @@ public:
                             const TargetSubtargetInfo *STI) const override;
 
 protected:
-  XtensaSubtarget Subtarget;
+  mutable StringMap<std::unique_ptr<XtensaSubtarget>> SubtargetMap;
 };
 } // end namespace llvm
 

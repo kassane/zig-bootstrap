@@ -12,13 +12,13 @@
 // RUN: %T/baremetal_default_sysroot/bin/clang -no-canonical-prefixes %s -### -o %t.o 2>&1 \
 // RUN:     -target armv6m-none-eabi --sysroot= \
 // RUN:   | FileCheck --check-prefix=CHECK-V6M-C %s
-// CHECK-V6M-C: "{{.*}}clang{{.*}}" "-cc1" "-triple" "thumbv6m-none-unknown-eabi"
+// CHECK-V6M-C: "{{.*}}clang{{.*}}" "-cc1" "-triple" "thumbv6m-unknown-none-eabi"
 // CHECK-V6M-C-SAME: "-internal-isystem" "{{.*}}/baremetal_default_sysroot{{[/\\]+}}bin{{[/\\]+}}..{{[/\\]+}}lib{{[/\\]+}}clang-runtimes{{[/\\]+}}armv6m-none-eabi{{[/\\]+}}include{{[/\\]+}}c++{{[/\\]+}}v1"
 // CHECk-V6M-C-SAME: "-internal-isystem" "{{.*}}/baremetal_default_sysroot{{[/\\]+}}bin{{[/\\]+}}..{{[/\\]+}}lib{{[/\\]+}}clang-runtimes{{[/\\]+}}armv6m-none-eabi{{[/\\]+}}include"
 // CHECK-V6M-C-SAME: "-x" "c++" "{{.*}}baremetal-sysroot.cpp"
 // CHECK-V6M-C-NEXT: "{{[^"]*}}ld{{(\.(lld|bfd|gold))?}}{{(\.exe)?}}" "{{.*}}.o" "-Bstatic"
 // CHECK-V6M-C-SAME: "-L{{.*}}/baremetal_default_sysroot{{[/\\]+}}bin{{[/\\]+}}..{{[/\\]+}}lib{{[/\\]+}}clang-runtimes{{[/\\]+}}armv6m-none-eabi{{[/\\]+}}lib"
-// CHECK-V6M-C-SAME: "-lc" "-lm" "-lclang_rt.builtins-armv6m"
+// CHECK-V6M-C-SAME: "-lc" "-lm" "{{[^"]*}}libclang_rt.builtins.a"
 // CHECK-V6M-C-SAME: "-o" "{{.*}}.o"
 
 // RUN: rm -rf %T/baremetal_default_sysroot
@@ -49,7 +49,7 @@
 // CHECK-ESP-RV32IMAC-C-NEXT: "{{[^"]*}}ld{{(\.(lld|bfd|gold))?}}{{(\.exe)?}}" "-m" "elf32lriscv"
 // CHECK-ESP-RV32IMAC-C-SAME: "-o" "{{.*}}.o"
 // CHECK-ESP-RV32IMAC-C-SAME: "-L{{.*}}/baremetal_default_sysroot{{[/\\]+}}bin{{[/\\]+}}..{{[/\\]+}}lib{{[/\\]+}}clang-runtimes{{[/\\]+}}riscv32-esp-unknown-elf{{[/\\]+}}rv32imac-zicsr-zifencei_ilp32{{[/\\]+}}lib"
-// CHECK-ESP-RV32IMAC-C-SAME: "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group" "-lclang_rt.builtins-riscv32"
+// CHECK-ESP-RV32IMAC-C-SAME: "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group" "{{[^"]*}}libclang_rt.builtins.a"
 
 // RUN: rm -rf %T/baremetal_default_sysroot
 // RUN: mkdir -p %T/baremetal_default_sysroot/bin
@@ -74,4 +74,4 @@
 // CHECK-ESP-ESP32-C-NEXT: "{{[^"]*}}ld{{(\.(lld|bfd|gold))?}}{{(\.exe)?}}"
 // CHECK-ESP-ESP32-C-SAME: "-o" "{{.*}}.o"
 // CHECK-ESP-ESP32-C-SAME: "-L{{.*}}/baremetal_default_sysroot{{[/\\]+}}bin{{[/\\]+}}..{{[/\\]+}}lib{{[/\\]+}}clang-runtimes{{[/\\]+}}xtensa-esp-unknown-elf{{[/\\]+}}esp32{{[/\\]+}}lib"
-// CHECK-ESP-ESP32-C-SAME: "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group" "-lclang_rt.builtins-xtensa"
+// CHECK-ESP-ESP32-C-SAME: "--start-group" "-lc" "-lgloss" "-lnosys" "--end-group" "{{[^"]*}}libclang_rt.builtins.a"

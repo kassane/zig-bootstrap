@@ -69,8 +69,7 @@ XtensaTargetMachine::XtensaTargetMachine(const Target &T, const Triple &TT,
     : LLVMTargetMachine(T, computeDataLayout(TT, CPU, Options, IsLittle), TT,
                         CPU, FS, Options, getEffectiveRelocModel(JIT, RM),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(createTLOF()),
-      Subtarget(TT, std::string(CPU), std::string(FS), *this) {
+      TLOF(createTLOF()) {
   initAsmInfo();
 }
 
@@ -84,7 +83,21 @@ XtensaTargetMachine::XtensaTargetMachine(const Target &T, const Triple &TT,
 
 const XtensaSubtarget *
 XtensaTargetMachine::getSubtargetImpl(const Function &F) const {
-  return &Subtarget;
+  Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  Attribute FSAttr = F.getFnAttribute("target-features");
+
+  auto CPU = CPUAttr.isValid() ? CPUAttr.getValueAsString().str() : TargetCPU;
+  auto FS = FSAttr.isValid() ? FSAttr.getValueAsString().str() : TargetFS;
+
+  auto &I = SubtargetMap[CPU + FS];
+  if (!I) {
+    // This needs to be done before we create a new subtarget since any
+    // creation will depend on the TM and the code generation flags on the
+    // function that reside in TargetOptions.
+    resetTargetOptions(F);
+    I = std::make_unique<XtensaSubtarget>(TargetTriple, CPU, FS, *this);
+  }
+  return I.get();
 }
 
 TargetTransformInfo
@@ -131,7 +144,7 @@ bool XtensaPassConfig::addInstSelector() {
 }
 
 void XtensaPassConfig::addIRPasses() {
-    addPass(createAtomicExpandPass());
+    addPass(createAtomicExpandLegacyPass());
     TargetPassConfig::addIRPasses();
 }
 

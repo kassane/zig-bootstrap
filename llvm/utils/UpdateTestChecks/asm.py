@@ -51,7 +51,8 @@ ASM_FUNCTION_AARCH64_RE = re.compile(
 )
 
 ASM_FUNCTION_AMDGPU_RE = re.compile(
-    r'^_?(?P<func>[^:]+):[ \t]*;+[ \t]*@"?(?P=func)"?\n[^:]*?'
+    r"\.type\s+_?(?P<func>[^,\n]+),@function\n"
+    r'^_?(?P=func):(?:[ \t]*;+[ \t]*@"?(?P=func)"?)?\n'
     r"(?P<body>.*?)\n"  # (body of the function)
     # This list is incomplete
     r"^\s*(\.Lfunc_end[0-9]+:\n|\.section)",
@@ -106,6 +107,13 @@ ASM_FUNCTION_AVR_RE = re.compile(
     r"(?P<body>.*?)\n"
     r".Lfunc_end[0-9]+:\n",
     flags=(re.M | re.S),
+)
+
+ASM_FUNCTION_XTENSA_RE = re.compile(
+    r'^_?(?P<func>[^.:]+):[ \t]*#+[ \t]*@"?(?P=func)"?\n\s?\.?(cfi_startproc\s)?# %bb.0:.*?\n'
+    r'(?P<body>.*?)\n'
+    r'^\.Lfunc_end\d+:\n',  # Match the end label
+    flags=(re.M | re.S)
 )
 
 ASM_FUNCTION_PPC_RE = re.compile(
@@ -254,13 +262,6 @@ ASM_FUNCTION_LOONGARCH_RE = re.compile(
     r"(?P<body>^##?[ \t]+[^:]+:.*?)\s*"
     r".Lfunc_end[0-9]+:\n",
     flags=(re.M | re.S),
-)
-
-ASM_FUNCTION_XTENSA_RE = re.compile(
-    r'^_?(?P<func>[^.:]+):[ \t]*#+[ \t]*@"?(?P=func)"?\n\s?\.?(cfi_startproc\s)?# %bb.0:.*?\n'
-    r'(?P<body>.*?)\n'
-    r'^\.Lfunc_end\d+:\n',  # Match the end label
-    flags=(re.M | re.S)
 )
 
 SCRUB_X86_SHUFFLES_RE = re.compile(
@@ -532,14 +533,14 @@ def scrub_asm_loongarch(asm, args):
     return asm
 
 def scrub_asm_xtensa(asm, args):
-  # Scrub runs of whitespace out of the assembly, but leave the leading
-  # whitespace in place.
-  asm = common.SCRUB_WHITESPACE_RE.sub(r' ', asm)
-  # Expand the tabs used for indentation.
-  asm = string.expandtabs(asm, 2)
-  # Strip trailing whitespace.
-  asm = common.SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
-  return asm
+    # Scrub runs of whitespace out of the assembly, but leave the leading
+    # whitespace in place.
+    asm = common.SCRUB_WHITESPACE_RE.sub(r" ", asm)
+    # Expand the tabs used for indentation.
+    asm = string.expandtabs(asm, 2)
+    # Strip trailing whitespace.
+    asm = common.SCRUB_TRAILING_WHITESPACE_RE.sub(r"", asm)
+    return asm
 
 # Returns a tuple of a scrub function and a function regex. Scrub function is
 # used to alter function body in some way, for example, remove trailing spaces.
@@ -549,11 +550,7 @@ def get_run_handler(triple):
         "i686": (scrub_asm_x86, ASM_FUNCTION_X86_RE),
         "x86": (scrub_asm_x86, ASM_FUNCTION_X86_RE),
         "i386": (scrub_asm_x86, ASM_FUNCTION_X86_RE),
-        "arm64_32-apple-ios": (scrub_asm_arm_eabi, ASM_FUNCTION_AARCH64_DARWIN_RE),
-        "arm64_32-apple-watchos2.0.0": (
-            scrub_asm_arm_eabi,
-            ASM_FUNCTION_AARCH64_DARWIN_RE,
-        ),
+        "arm64_32": (scrub_asm_arm_eabi, ASM_FUNCTION_AARCH64_DARWIN_RE),
         "aarch64": (scrub_asm_arm_eabi, ASM_FUNCTION_AARCH64_RE),
         "aarch64-apple-darwin": (scrub_asm_arm_eabi, ASM_FUNCTION_AARCH64_DARWIN_RE),
         "aarch64-apple-ios": (scrub_asm_arm_eabi, ASM_FUNCTION_AARCH64_DARWIN_RE),
@@ -598,7 +595,7 @@ def get_run_handler(triple):
         "nvptx": (scrub_asm_nvptx, ASM_FUNCTION_NVPTX_RE),
         "loongarch32": (scrub_asm_loongarch, ASM_FUNCTION_LOONGARCH_RE),
         "loongarch64": (scrub_asm_loongarch, ASM_FUNCTION_LOONGARCH_RE),
-        "xtensa": (scrub_asm_xtensa, ASM_FUNCTION_XTENSA_RE)
+        "xtensa": (scrub_asm_xtensa, ASM_FUNCTION_XTENSA_RE),
     }
     handler = None
     best_prefix = ""
@@ -622,6 +619,7 @@ def add_checks(
     prefix_list,
     func_dict,
     func_name,
+    ginfo: common.GeneralizerInfo,
     global_vars_seen_dict,
     is_filtered,
 ):
@@ -634,9 +632,7 @@ def add_checks(
         func_dict,
         func_name,
         check_label_format,
-        True,
-        False,
-        1,
+        ginfo,
         global_vars_seen_dict,
         is_filtered=is_filtered,
     )

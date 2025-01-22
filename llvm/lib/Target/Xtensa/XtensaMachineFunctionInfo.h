@@ -45,9 +45,7 @@ public:
   bool isSaveFrameRegister() const { return SaveFrameRegister; }
   void setSaveFrameRegister() { SaveFrameRegister = true; }
 
-  unsigned createLabelUId() {
-    return LabelUId++;
-  }
+  unsigned createLabelUId() { return LabelUId++; }
 };
 
 } // namespace llvm

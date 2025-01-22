@@ -368,6 +368,11 @@ test "fstatat" {
     // now repeat but using `fstatat` instead
     const flags = if (native_os == .wasi) 0x0 else posix.AT.SYMLINK_NOFOLLOW;
     const statat = try posix.fstatat(tmp.dir.fd, "file.txt", flags);
+
+    // s390x-linux does not have nanosecond precision for fstat(), but it does for fstatat(). As a
+    // result, comparing the two structures is doomed to fail.
+    if (builtin.cpu.arch == .s390x and builtin.os.tag == .linux) return error.SkipZigTest;
+
     try expectEqual(stat, statat);
 }
 
@@ -799,7 +804,7 @@ test "getrlimit and setrlimit" {
         //
         // This happens for example if RLIMIT_MEMLOCK is bigger than ~2GiB.
         // In that case the following the limit would be RLIM_INFINITY and the following setrlimit fails with EPERM.
-        if (comptime builtin.cpu.arch.isMIPS() and builtin.link_libc) {
+        if (builtin.cpu.arch.isMIPS() and builtin.link_libc) {
             if (limit.cur != linux.RLIM.INFINITY) {
                 try posix.setrlimit(resource, limit);
             }
@@ -844,7 +849,7 @@ test "sigaction" {
     const S = struct {
         var handler_called_count: u32 = 0;
 
-        fn handler(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopaque) callconv(.C) void {
+        fn handler(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopaque) callconv(.c) void {
             _ = ctx_ptr;
             // Check that we received the correct signal.
             switch (native_os) {

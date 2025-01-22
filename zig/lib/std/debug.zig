@@ -21,6 +21,10 @@ pub const SelfInfo = @import("debug/SelfInfo.zig");
 pub const Info = @import("debug/Info.zig");
 pub const Coverage = @import("debug/Coverage.zig");
 
+pub const FormattedPanic = @import("debug/FormattedPanic.zig");
+pub const SimplePanic = @import("debug/SimplePanic.zig");
+pub const NoPanic = @import("debug/NoPanic.zig");
+
 /// Unresolved source locations can be represented with a single `usize` that
 /// corresponds to a virtual memory address of the program counter. Combined
 /// with debug information, those values can be converted into a resolved
@@ -58,6 +62,7 @@ pub const sys_can_stack_trace = switch (builtin.cpu.arch) {
     .mipsel,
     .mips64,
     .mips64el,
+    .s390x,
     => false,
 
     // `@returnAddress()` in LLVM 10 gives
@@ -175,7 +180,7 @@ pub fn dumpHexFallible(bytes: []const u8) !void {
 /// TODO multithreaded awareness
 pub fn dumpCurrentStackTrace(start_addr: ?usize) void {
     nosuspend {
-        if (comptime builtin.target.isWasm()) {
+        if (builtin.target.isWasm()) {
             if (native_os == .wasi) {
                 const stderr = io.getStdErr().writer();
                 stderr.print("Unable to dump stack trace: not implemented for Wasm\n", .{}) catch return;
@@ -263,7 +268,7 @@ pub inline fn getContext(context: *ThreadContext) bool {
 /// TODO multithreaded awareness
 pub fn dumpStackTraceFromBase(context: *ThreadContext) void {
     nosuspend {
-        if (comptime builtin.target.isWasm()) {
+        if (builtin.target.isWasm()) {
             if (native_os == .wasi) {
                 const stderr = io.getStdErr().writer();
                 stderr.print("Unable to dump stack trace: not implemented for Wasm\n", .{}) catch return;
@@ -361,7 +366,7 @@ pub fn captureStackTrace(first_address: ?usize, stack_trace: *std.builtin.StackT
 /// TODO multithreaded awareness
 pub fn dumpStackTrace(stack_trace: std.builtin.StackTrace) void {
     nosuspend {
-        if (comptime builtin.target.isWasm()) {
+        if (builtin.target.isWasm()) {
             if (native_os == .wasi) {
                 const stderr = io.getStdErr().writer();
                 stderr.print("Unable to dump stack trace: not implemented for Wasm\n", .{}) catch return;
@@ -408,14 +413,21 @@ pub fn assertReadable(slice: []const volatile u8) void {
     for (slice) |*byte| _ = byte.*;
 }
 
+/// By including a call to this function, the caller gains an error return trace
+/// secret parameter, making `@errorReturnTrace()` more useful. This is not
+/// necessary if the function already contains a call to an errorable function
+/// elsewhere.
+pub fn errorReturnTraceHelper() anyerror!void {}
+
+/// Equivalent to `@panic` but with a formatted message.
 pub fn panic(comptime format: []const u8, args: anytype) noreturn {
     @branchHint(.cold);
-
+    errorReturnTraceHelper() catch unreachable;
     panicExtra(@errorReturnTrace(), @returnAddress(), format, args);
 }
 
-/// `panicExtra` is useful when you want to print out an `@errorReturnTrace`
-/// and also print out some values.
+/// Equivalent to `@panic` but with a formatted message, and with an explicitly
+/// provided `@errorReturnTrace` and return address.
 pub fn panicExtra(
     trace: ?*std.builtin.StackTrace,
     ret_addr: ?usize,
@@ -436,7 +448,7 @@ pub fn panicExtra(
             break :blk &buf;
         },
     };
-    std.builtin.panic(msg, trace, ret_addr);
+    std.builtin.Panic.call(msg, trace, ret_addr);
 }
 
 /// Non-zero whenever the program triggered a panic.
@@ -447,10 +459,69 @@ var panicking = std.atomic.Value(u8).init(0);
 /// This is used to catch and handle panics triggered by the panic handler.
 threadlocal var panic_stage: usize = 0;
 
-// `panicImpl` could be useful in implementing a custom panic handler which
-// calls the default handler (on supported platforms)
-pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize, msg: []const u8) noreturn {
+/// Dumps a stack trace to standard error, then aborts.
+pub fn defaultPanic(
+    msg: []const u8,
+    error_return_trace: ?*const std.builtin.StackTrace,
+    first_trace_addr: ?usize,
+) noreturn {
     @branchHint(.cold);
+
+    // For backends that cannot handle the language features depended on by the
+    // default panic handler, we have a simpler panic handler:
+    if (builtin.zig_backend == .stage2_wasm or
+        builtin.zig_backend == .stage2_arm or
+        builtin.zig_backend == .stage2_aarch64 or
+        builtin.zig_backend == .stage2_x86 or
+        (builtin.zig_backend == .stage2_x86_64 and (builtin.target.ofmt != .elf and builtin.target.ofmt != .macho)) or
+        builtin.zig_backend == .stage2_sparc64 or
+        builtin.zig_backend == .stage2_spirv64)
+    {
+        @trap();
+    }
+
+    switch (builtin.os.tag) {
+        .freestanding, .other => {
+            @trap();
+        },
+        .uefi => {
+            const uefi = std.os.uefi;
+
+            var utf16_buffer: [1000]u16 = undefined;
+            const len_minus_3 = std.unicode.utf8ToUtf16Le(&utf16_buffer, msg) catch 0;
+            utf16_buffer[len_minus_3..][0..3].* = .{ '\r', '\n', 0 };
+            const len = len_minus_3 + 3;
+            const exit_msg = utf16_buffer[0 .. len - 1 :0];
+
+            // Output to both std_err and con_out, as std_err is easier
+            // to read in stuff like QEMU at times, but, unlike con_out,
+            // isn't visible on actual hardware if directly booted into
+            inline for ([_]?*uefi.protocol.SimpleTextOutput{ uefi.system_table.std_err, uefi.system_table.con_out }) |o| {
+                if (o) |out| {
+                    _ = out.setAttribute(uefi.protocol.SimpleTextOutput.red);
+                    _ = out.outputString(exit_msg);
+                    _ = out.setAttribute(uefi.protocol.SimpleTextOutput.white);
+                }
+            }
+
+            if (uefi.system_table.boot_services) |bs| {
+                // ExitData buffer must be allocated using boot_services.allocatePool (spec: page 220)
+                const exit_data: []u16 = uefi.raw_pool_allocator.alloc(u16, exit_msg.len + 1) catch @trap();
+                @memcpy(exit_data, exit_msg[0..exit_data.len]); // Includes null terminator.
+                _ = bs.exit(uefi.handle, .Aborted, exit_data.len, exit_data.ptr);
+            }
+            @trap();
+        },
+        .cuda, .amdhsa => std.posix.abort(),
+        .plan9 => {
+            var status: [std.os.plan9.ERRMAX]u8 = undefined;
+            const len = @min(msg.len, status.len - 1);
+            @memcpy(status[0..len], msg[0..len]);
+            status[len] = 0;
+            std.os.plan9.exits(status[0..len :0]);
+        },
+        else => {},
+    }
 
     if (enable_segfault_handler) {
         // If a segfault happens while panicking, we want it to actually segfault, not trigger
@@ -465,7 +536,6 @@ pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize
 
             _ = panicking.fetchAdd(1, .seq_cst);
 
-            // Make sure to release the mutex when done
             {
                 lockStdErr();
                 defer unlockStdErr();
@@ -478,10 +548,9 @@ pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize
                     stderr.print("thread {} panic: ", .{current_thread_id}) catch posix.abort();
                 }
                 stderr.print("{s}\n", .{msg}) catch posix.abort();
-                if (trace) |t| {
-                    dumpStackTrace(t.*);
-                }
-                dumpCurrentStackTrace(first_trace_addr);
+
+                if (error_return_trace) |t| dumpStackTrace(t.*);
+                dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
             }
 
             waitForOtherThreadToFinishPanicking();
@@ -489,15 +558,12 @@ pub fn panicImpl(trace: ?*const std.builtin.StackTrace, first_trace_addr: ?usize
         1 => {
             panic_stage = 2;
 
-            // A panic happened while trying to print a previous panic message,
-            // we're still holding the mutex but that's fine as we're going to
-            // call abort()
-            const stderr = io.getStdErr().writer();
-            stderr.print("Panicked during a panic. Aborting.\n", .{}) catch posix.abort();
+            // A panic happened while trying to print a previous panic message.
+            // We're still holding the mutex but that's fine as we're going to
+            // call abort().
+            io.getStdErr().writeAll("aborting due to recursive panic\n") catch {};
         },
-        else => {
-            // Panicked while printing "Panicked during a panic."
-        },
+        else => {}, // Panicked while printing the recursive panic message.
     };
 
     posix.abort();
@@ -591,7 +657,7 @@ pub const StackIterator = struct {
         // The implementation of DWARF unwinding on aarch64-macos is not complete. However, Apple mandates that
         // the frame pointer register is always used, so on this platform we can safely use the FP-based unwinder.
         if (builtin.target.isDarwin() and native_arch == .aarch64)
-            return init(first_address, context.mcontext.ss.fp);
+            return init(first_address, @truncate(context.mcontext.ss.fp));
 
         if (SelfInfo.supports_unwinding) {
             var iterator = init(first_address, null);
@@ -1157,7 +1223,7 @@ pub const default_enable_segfault_handler = runtime_safety and have_segfault_han
 
 pub fn maybeEnableSegfaultHandler() void {
     if (enable_segfault_handler) {
-        std.debug.attachSegfaultHandler();
+        attachSegfaultHandler();
     }
 }
 
@@ -1204,7 +1270,7 @@ fn resetSegfaultHandler() void {
     updateSegfaultHandler(&act);
 }
 
-fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopaque) callconv(.C) noreturn {
+fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopaque) callconv(.c) noreturn {
     // Reset to the default handler so that if a segfault happens in this handler it will crash
     // the process. Also when this handler returns, the original instruction will be repeated
     // and the resulting segfault will crash the process rather than continually dump stack traces.
@@ -1270,7 +1336,11 @@ fn dumpSegfaultInfoPosix(sig: i32, code: i32, addr: usize, ctx_ptr: ?*anyopaque)
         .x86,
         .x86_64,
         .arm,
+        .armeb,
+        .thumb,
+        .thumbeb,
         .aarch64,
+        .aarch64_be,
         => {
             const ctx: *posix.ucontext_t = @ptrCast(@alignCast(ctx_ptr));
             dumpStackTraceFromBase(ctx);
@@ -1279,7 +1349,7 @@ fn dumpSegfaultInfoPosix(sig: i32, code: i32, addr: usize, ctx_ptr: ?*anyopaque)
     }
 }
 
-fn handleSegfaultWindows(info: *windows.EXCEPTION_POINTERS) callconv(windows.WINAPI) c_long {
+fn handleSegfaultWindows(info: *windows.EXCEPTION_POINTERS) callconv(.winapi) c_long {
     switch (info.ExceptionRecord.ExceptionCode) {
         windows.EXCEPTION_DATATYPE_MISALIGNMENT => handleSegfaultWindowsExtra(info, 0, "Unaligned Memory Access"),
         windows.EXCEPTION_ACCESS_VIOLATION => handleSegfaultWindowsExtra(info, 1, null),
@@ -1289,46 +1359,29 @@ fn handleSegfaultWindows(info: *windows.EXCEPTION_POINTERS) callconv(windows.WIN
     }
 }
 
-fn handleSegfaultWindowsExtra(
-    info: *windows.EXCEPTION_POINTERS,
-    msg: u8,
-    label: ?[]const u8,
-) noreturn {
-    const exception_address = @intFromPtr(info.ExceptionRecord.ExceptionAddress);
-    if (windows.CONTEXT != void) {
-        nosuspend switch (panic_stage) {
-            0 => {
-                panic_stage = 1;
-                _ = panicking.fetchAdd(1, .seq_cst);
+fn handleSegfaultWindowsExtra(info: *windows.EXCEPTION_POINTERS, msg: u8, label: ?[]const u8) noreturn {
+    comptime assert(windows.CONTEXT != void);
+    nosuspend switch (panic_stage) {
+        0 => {
+            panic_stage = 1;
+            _ = panicking.fetchAdd(1, .seq_cst);
 
-                {
-                    lockStdErr();
-                    defer unlockStdErr();
+            {
+                lockStdErr();
+                defer unlockStdErr();
 
-                    dumpSegfaultInfoWindows(info, msg, label);
-                }
-
-                waitForOtherThreadToFinishPanicking();
-            },
-            else => {
-                // panic mutex already locked
                 dumpSegfaultInfoWindows(info, msg, label);
-            },
-        };
-        posix.abort();
-    } else {
-        switch (msg) {
-            0 => panicImpl(null, exception_address, "{s}", label.?),
-            1 => {
-                const format_item = "Segmentation fault at address 0x{x}";
-                var buf: [format_item.len + 64]u8 = undefined; // 64 is arbitrary, but sufficiently large
-                const to_print = std.fmt.bufPrint(buf[0..buf.len], format_item, .{info.ExceptionRecord.ExceptionInformation[1]}) catch unreachable;
-                panicImpl(null, exception_address, to_print);
-            },
-            2 => panicImpl(null, exception_address, "Illegal Instruction"),
-            else => unreachable,
-        }
-    }
+            }
+
+            waitForOtherThreadToFinishPanicking();
+        },
+        1 => {
+            panic_stage = 2;
+            io.getStdErr().writeAll("aborting due to recursive panic\n") catch {};
+        },
+        else => {},
+    };
+    posix.abort();
 }
 
 fn dumpSegfaultInfoWindows(info: *windows.EXCEPTION_POINTERS, msg: u8, label: ?[]const u8) void {
@@ -1347,7 +1400,7 @@ pub fn dumpStackPointerAddr(prefix: []const u8) void {
     const sp = asm (""
         : [argc] "={rsp}" (-> usize),
     );
-    std.debug.print("{s} sp = 0x{x}\n", .{ prefix, sp });
+    print("{s} sp = 0x{x}\n", .{ prefix, sp });
 }
 
 test "manage resources correctly" {
@@ -1460,7 +1513,7 @@ pub fn ConfigurableTrace(comptime size: usize, comptime stack_frame_count: usize
         }
 
         pub fn format(
-            t: Trace,
+            t: @This(),
             comptime fmt: []const u8,
             options: std.fmt.FormatOptions,
             writer: anytype,
@@ -1479,9 +1532,9 @@ pub fn ConfigurableTrace(comptime size: usize, comptime stack_frame_count: usize
 }
 
 pub const SafetyLock = struct {
-    state: State = .unlocked,
+    state: State = if (runtime_safety) .unlocked else .unknown,
 
-    pub const State = if (runtime_safety) enum { unlocked, locked } else enum { unlocked };
+    pub const State = if (runtime_safety) enum { unlocked, locked } else enum { unknown };
 
     pub fn lock(l: *SafetyLock) void {
         if (!runtime_safety) return;
@@ -1499,7 +1552,21 @@ pub const SafetyLock = struct {
         if (!runtime_safety) return;
         assert(l.state == .unlocked);
     }
+
+    pub fn assertLocked(l: SafetyLock) void {
+        if (!runtime_safety) return;
+        assert(l.state == .locked);
+    }
 };
+
+test SafetyLock {
+    var safety_lock: SafetyLock = .{};
+    safety_lock.assertUnlocked();
+    safety_lock.lock();
+    safety_lock.assertLocked();
+    safety_lock.unlock();
+    safety_lock.assertUnlocked();
+}
 
 /// Detect whether the program is being executed in the Valgrind virtual machine.
 ///

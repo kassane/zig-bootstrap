@@ -100,7 +100,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<MachineLoopInfo>();
+    AU.addRequired<MachineLoopInfoWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
@@ -125,7 +125,7 @@ bool XtensaFixupHwLoops::runOnMachineFunction(MachineFunction &mf) {
     return false;
 
   MF = &mf;
-  MLI = &getAnalysis<MachineLoopInfo>();
+  MLI = &getAnalysis<MachineLoopInfoWrapperPass>().getLI();
   const TargetSubtargetInfo &ST = mf.getSubtarget();
   TII = ST.getInstrInfo();
   TRI = ST.getRegisterInfo();

@@ -1,7 +1,5 @@
 //===- XtensaAsmPrinter.cpp Xtensa LLVM Assembly Printer ------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -15,12 +13,13 @@
 
 #include "XtensaAsmPrinter.h"
 #include "MCTargetDesc/XtensaInstPrinter.h"
-#include "XtensaConstantPoolValue.h"
-#include "XtensaMCInstLower.h"
-#include "XtensaSubtarget.h"
+#include "MCTargetDesc/XtensaMCExpr.h"
+#include "MCTargetDesc/XtensaTargetStreamer.h"
 #include "TargetInfo/XtensaTargetInfo.h"
+#include "XtensaConstantPoolValue.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/MC/MCExpr.h"
@@ -41,12 +40,10 @@ getModifierVariantKind(XtensaCP::XtensaCPModifier Modifier) {
   case XtensaCP::TPOFF:
     return MCSymbolRefExpr::VK_TPOFF;
   }
-  llvm_unreachable("Invalid XtensaCPModifier!");
+  report_fatal_error("Invalid XtensaCPModifier!");
 }
 
 void XtensaAsmPrinter::emitInstruction(const MachineInstr *MI) {
-  XtensaMCInstLower Lower(MF->getContext(), *this);
-  MCInst LoweredMI;
   unsigned Opc = MI->getOpcode();
   const MachineConstantPool *MCP = MF->getConstantPool();
 
@@ -82,17 +79,61 @@ void XtensaAsmPrinter::emitInstruction(const MachineInstr *MI) {
   }
 
   switch (Opc) {
-  case Xtensa::BR_JT: {
+  case Xtensa::BR_JT:
     EmitToStreamer(
         *OutStreamer,
         MCInstBuilder(Xtensa::JX).addReg(MI->getOperand(0).getReg()));
     return;
-  }
   case Xtensa::LOOPEND:
     return;
+  default:
+    MCInst LoweredMI;
+    lowerToMCInst(MI, LoweredMI);
+    EmitToStreamer(*OutStreamer, LoweredMI);
+    return;
   }
-  Lower.lower(MI, LoweredMI);
-  EmitToStreamer(*OutStreamer, LoweredMI);
+}
+
+void XtensaAsmPrinter::emitMachineConstantPoolValue(
+    MachineConstantPoolValue *MCPV) {
+  XtensaConstantPoolValue *ACPV = static_cast<XtensaConstantPoolValue *>(MCPV);
+  MCSymbol *MCSym;
+
+  if (ACPV->isBlockAddress()) {
+    const BlockAddress *BA =
+        cast<XtensaConstantPoolConstant>(ACPV)->getBlockAddress();
+    MCSym = GetBlockAddressSymbol(BA);
+  } else if (ACPV->isJumpTable()) {
+    unsigned Idx = cast<XtensaConstantPoolJumpTable>(ACPV)->getIndex();
+    MCSym = this->GetJTISymbol(Idx, false);
+  } else {
+    assert(ACPV->isExtSymbol() && "unrecognized constant pool value");
+    XtensaConstantPoolSymbol *XtensaSym = cast<XtensaConstantPoolSymbol>(ACPV);
+    const char *SymName = XtensaSym->getSymbol();
+
+    if (XtensaSym->isPrivateLinkage()) {
+      const DataLayout &DL = getDataLayout();
+      MCSym = OutContext.getOrCreateSymbol(Twine(DL.getPrivateGlobalPrefix()) +
+                                           SymName);
+    } else {
+      MCSym = OutContext.getOrCreateSymbol(SymName);
+    }
+  }
+
+  MCSymbol *LblSym = GetCPISymbol(ACPV->getLabelId());
+  auto *TS =
+      static_cast<XtensaTargetStreamer *>(OutStreamer->getTargetStreamer());
+  MCSymbolRefExpr::VariantKind VK = getModifierVariantKind(ACPV->getModifier());
+
+  if (ACPV->getModifier() != XtensaCP::no_modifier) {
+    std::string SymName(MCSym->getName());
+    StringRef Modifier = ACPV->getModifierText();
+    SymName += Modifier;
+    MCSym = OutContext.getOrCreateSymbol(SymName);
+  }
+
+  const MCExpr *Expr = MCSymbolRefExpr::create(MCSym, VK, OutContext);
+  TS->emitLiteral(LblSym, Expr, false);
 }
 
 void XtensaAsmPrinter::emitMachineConstantPoolEntry(
@@ -104,152 +145,52 @@ void XtensaAsmPrinter::emitMachineConstantPoolEntry(
     emitMachineConstantPoolValue(CPE.Val.MachineCPVal);
   } else {
     MCSymbol *LblSym = GetCPISymbol(i);
-    // TODO find a better way to check whether we emit data to .s file
-    if (OutStreamer->hasRawTextSupport()) {
-      std::string str("\t.literal ");
-      str += LblSym->getName();
-      str += ", ";
-      const Constant *C = CPE.Val.ConstVal;
+    auto *TS =
+        static_cast<XtensaTargetStreamer *>(OutStreamer->getTargetStreamer());
+    const Constant *C = CPE.Val.ConstVal;
+    const MCExpr *Value = nullptr;
 
-      Type *Ty = C->getType();
-      if (const auto *CFP = dyn_cast<ConstantFP>(C)) {
-        str += toString(CFP->getValueAPF().bitcastToAPInt(), 10, true);
-      } else if (const auto *CI = dyn_cast<ConstantInt>(C)) {
-        str += toString(CI->getValue(), 10, true);
-      } else if (isa<PointerType>(Ty)) {
-        const MCExpr *ME = lowerConstant(C);
-        const MCSymbolRefExpr &SRE = cast<MCSymbolRefExpr>(*ME);
-        const MCSymbol &Sym = SRE.getSymbol();
-        str += Sym.getName();
-      } else {
-        llvm_unreachable("unexpected constant pool entry type");
-      }
-
-      OutStreamer->emitRawText(StringRef(str));
+    Type *Ty = C->getType();
+    if (const auto *CFP = dyn_cast<ConstantFP>(C)) {
+      Value = MCConstantExpr::create(
+          CFP->getValueAPF().bitcastToAPInt().getSExtValue(), OutContext);
+    } else if (const auto *CI = dyn_cast<ConstantInt>(C)) {
+      Value = MCConstantExpr::create(CI->getValue().getSExtValue(), OutContext);
+    } else if (isa<PointerType>(Ty)) {
+      Value = lowerConstant(C);
     } else {
-      OutStreamer->emitCodeAlignment(
-          Align(4), OutStreamer->getContext().getSubtargetInfo());
-      OutStreamer->emitLabel(LblSym);
-      emitGlobalConstant(getDataLayout(), CPE.Val.ConstVal);
+      llvm_unreachable("unexpected constant pool entry type");
     }
+
+    TS->emitLiteral(LblSym, Value, false);
   }
 }
 
-/// EmitConstantPool - Print to the current output stream assembly
-/// representations of the constants in the constant pool MCP. This is
-/// used to print out constants which have been "spilled to memory" by
-/// the code generator.
+// EmitConstantPool - Print to the current output stream assembly
+// representations of the constants in the constant pool MCP. This is
+// used to print out constants which have been "spilled to memory" by
+// the code generator.
 void XtensaAsmPrinter::emitConstantPool() {
   const Function &F = MF->getFunction();
   const MachineConstantPool *MCP = MF->getConstantPool();
   const std::vector<MachineConstantPoolEntry> &CP = MCP->getConstants();
-  const XtensaSubtarget *Subtarget = &MF->getSubtarget<XtensaSubtarget>();
-
-  if (Subtarget->useTextSectionLiterals())
-    return;
-
   if (CP.empty())
     return;
 
-  for (unsigned i = 0, e = CP.size(); i != e; ++i) {
-    const MachineConstantPoolEntry &CPE = CP[i];
+  OutStreamer->pushSection();
 
-    if (i == 0) {
-      if (OutStreamer->hasRawTextSupport()) {
-        OutStreamer->switchSection(
-            getObjFileLowering().SectionForGlobal(&F, TM));
-        OutStreamer->emitRawText(StringRef("\t.literal_position\n"));
-      } else {
-        MCSectionELF *CS =
-            (MCSectionELF *)getObjFileLowering().SectionForGlobal(&F, TM);
-        std::string CSectionName = CS->getName().str();
-        std::string SectionName;
-        std::size_t Pos = CSectionName.find(".text");
-        if (Pos != std::string::npos) {
-          if (Pos > 0)
-            SectionName = CSectionName.substr(0, Pos + 5);
-          else
-            SectionName = "";
-          SectionName += ".literal";
-          SectionName += CSectionName.substr(Pos + 5);
-        } else {
-          SectionName = CSectionName;
-          SectionName += ".literal";
-        }
+  auto *TS =
+      static_cast<XtensaTargetStreamer *>(OutStreamer->getTargetStreamer());
+  MCSection *CS = getObjFileLowering().SectionForGlobal(&F, TM);
+ // TS->setTextSectionLiterals();
+  TS->startLiteralSection(CS);
 
-        MCSectionELF *S =
-            OutContext.getELFSection(SectionName, ELF::SHT_PROGBITS,
-                                     ELF::SHF_EXECINSTR | ELF::SHF_ALLOC);
-        S->setAlignment(Align(4));
-        OutStreamer->switchSection(S);
-      }
-    }
-
-    emitMachineConstantPoolEntry(CPE, i);
-  }
-}
-
-void XtensaAsmPrinter::emitMachineConstantPoolValue(
-    MachineConstantPoolValue *MCPV) {
-  XtensaConstantPoolValue *ACPV = static_cast<XtensaConstantPoolValue *>(MCPV);
-
-  MCSymbol *MCSym;
-  if (ACPV->isBlockAddress()) {
-    const BlockAddress *BA =
-        cast<XtensaConstantPoolConstant>(ACPV)->getBlockAddress();
-    MCSym = GetBlockAddressSymbol(BA);
-  } else if (ACPV->isGlobalValue()) {
-    const GlobalValue *GV = cast<XtensaConstantPoolConstant>(ACPV)->getGV();
-    // TODO some modifiers
-    MCSym = getSymbol(GV);
-  } else if (ACPV->isMachineBasicBlock()) {
-    const MachineBasicBlock *MBB = cast<XtensaConstantPoolMBB>(ACPV)->getMBB();
-    MCSym = MBB->getSymbol();
-  } else if (ACPV->isJumpTable()) {
-    unsigned idx = cast<XtensaConstantPoolJumpTable>(ACPV)->getIndex();
-    MCSym = this->GetJTISymbol(idx, false);
-  } else {
-    assert(ACPV->isExtSymbol() && "unrecognized constant pool value");
-    XtensaConstantPoolSymbol *XtensaSym = cast<XtensaConstantPoolSymbol>(ACPV);
-    const char *Sym = XtensaSym->getSymbol();
-    // TODO it's a trick to distinguish static references and generated rodata
-    // references Some clear method required
-    {
-      std::string SymName(Sym);
-      if (XtensaSym->isPrivateLinkage())
-        SymName = ".L" + SymName;
-      MCSym = GetExternalSymbolSymbol(StringRef(SymName));
-    }
+  int CPIdx = 0;
+  for (const MachineConstantPoolEntry &CPE : CP) {
+    emitMachineConstantPoolEntry(CPE, CPIdx++);
   }
 
-  MCSymbol *LblSym = GetCPISymbol(ACPV->getLabelId());
-  // TODO find a better way to check whether we emit data to .s file
-  if (OutStreamer->hasRawTextSupport()) {
-    std::string SymName("\t.literal ");
-    SymName += LblSym->getName();
-    SymName += ", ";
-    SymName += MCSym->getName();
-
-    StringRef Modifier = ACPV->getModifierText();
-    SymName += Modifier;
-
-    OutStreamer->emitRawText(StringRef(SymName));
-  } else {
-    MCSymbolRefExpr::VariantKind VK =
-        getModifierVariantKind(ACPV->getModifier());
-
-    if (ACPV->getModifier() != XtensaCP::no_modifier) {
-      std::string SymName(MCSym->getName());
-      MCSym = GetExternalSymbolSymbol(StringRef(SymName));
-    }
-
-    const MCExpr *Expr = MCSymbolRefExpr::create(MCSym, VK, OutContext);
-    uint64_t Size = getDataLayout().getTypeAllocSize(ACPV->getType());
-    OutStreamer->emitCodeAlignment(
-        Align(4), OutStreamer->getContext().getSubtargetInfo());
-    OutStreamer->emitLabel(LblSym);
-    OutStreamer->emitValue(Expr, Size);
-  }
+  OutStreamer->popSection();
 }
 
 void XtensaAsmPrinter::printOperand(const MachineInstr *MI, int OpNo,
@@ -259,8 +200,7 @@ void XtensaAsmPrinter::printOperand(const MachineInstr *MI, int OpNo,
   switch (MO.getType()) {
   case MachineOperand::MO_Register:
   case MachineOperand::MO_Immediate: {
-    XtensaMCInstLower Lower(MF->getContext(), *this);
-    MCOperand MC(Lower.lowerOperand(MI->getOperand(OpNo)));
+    MCOperand MC(lowerOperand(MI->getOperand(OpNo)));
     XtensaInstPrinter::printOperand(MC, O);
     break;
   }
@@ -311,7 +251,107 @@ bool XtensaAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   return false;
 }
 
-// Force static initialization.
+MCSymbol *
+XtensaAsmPrinter::GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
+  // Create a symbol for the name.
+  return GetCPISymbol(MO.getIndex());
+}
+
+MCSymbol *XtensaAsmPrinter::GetJumpTableSymbol(const MachineOperand &MO) const {
+  return GetJTISymbol(MO.getIndex());
+}
+
+MCOperand
+XtensaAsmPrinter::LowerSymbolOperand(const MachineOperand &MO,
+                                     MachineOperand::MachineOperandType MOTy,
+                                     unsigned Offset) const {
+  const MCSymbol *Symbol;
+  XtensaMCExpr::VariantKind Kind = XtensaMCExpr::VK_Xtensa_None;
+
+  switch (MOTy) {
+  case MachineOperand::MO_GlobalAddress:
+    Symbol = getSymbol(MO.getGlobal());
+    Offset += MO.getOffset();
+    break;
+  case MachineOperand::MO_MachineBasicBlock:
+    Symbol = MO.getMBB()->getSymbol();
+    break;
+  case MachineOperand::MO_BlockAddress:
+    Symbol = GetBlockAddressSymbol(MO.getBlockAddress());
+    Offset += MO.getOffset();
+    break;
+  case MachineOperand::MO_ExternalSymbol:
+    Symbol = GetExternalSymbolSymbol(MO.getSymbolName());
+    Offset += MO.getOffset();
+    break;
+  case MachineOperand::MO_JumpTableIndex:
+    Symbol = GetJumpTableSymbol(MO);
+    break;
+  case MachineOperand::MO_ConstantPoolIndex:
+    Symbol = GetConstantPoolIndexSymbol(MO);
+    Offset += MO.getOffset();
+    break;
+  default:
+    report_fatal_error("<unknown operand type>");
+  }
+
+  const MCExpr *ME =
+      MCSymbolRefExpr::create(Symbol, MCSymbolRefExpr::VK_None, OutContext);
+  ME = XtensaMCExpr::create(ME, Kind, OutContext);
+
+  if (Offset) {
+    // Assume offset is never negative.
+    assert(Offset > 0);
+
+    const MCConstantExpr *OffsetExpr =
+        MCConstantExpr::create(Offset, OutContext);
+    ME = MCBinaryExpr::createAdd(ME, OffsetExpr, OutContext);
+  }
+
+  return MCOperand::createExpr(ME);
+}
+
+MCOperand XtensaAsmPrinter::lowerOperand(const MachineOperand &MO,
+                                         unsigned Offset) const {
+  MachineOperand::MachineOperandType MOTy = MO.getType();
+
+  switch (MOTy) {
+  case MachineOperand::MO_Register:
+    // Ignore all implicit register operands.
+    if (MO.isImplicit())
+      break;
+    return MCOperand::createReg(MO.getReg());
+  case MachineOperand::MO_Immediate:
+    return MCOperand::createImm(MO.getImm() + Offset);
+  case MachineOperand::MO_RegisterMask:
+    break;
+  case MachineOperand::MO_GlobalAddress:
+  case MachineOperand::MO_MachineBasicBlock:
+  case MachineOperand::MO_BlockAddress:
+  case MachineOperand::MO_ExternalSymbol:
+  case MachineOperand::MO_JumpTableIndex:
+  case MachineOperand::MO_ConstantPoolIndex:
+    return LowerSymbolOperand(MO, MOTy, Offset);
+  default:
+    report_fatal_error("unknown operand type");
+  }
+
+  return MCOperand();
+}
+
+void XtensaAsmPrinter::lowerToMCInst(const MachineInstr *MI,
+                                     MCInst &OutMI) const {
+  OutMI.setOpcode(MI->getOpcode());
+
+  for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
+    const MachineOperand &MO = MI->getOperand(i);
+    MCOperand MCOp = lowerOperand(MO);
+
+    if (MCOp.isValid())
+      OutMI.addOperand(MCOp);
+  }
+}
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeXtensaAsmPrinter() {
   RegisterAsmPrinter<XtensaAsmPrinter> A(getTheXtensaTarget());
 }

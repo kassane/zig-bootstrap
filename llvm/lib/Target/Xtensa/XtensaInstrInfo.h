@@ -30,10 +30,10 @@ class XtensaTargetMachine;
 class XtensaSubtarget;
 class XtensaInstrInfo : public XtensaGenInstrInfo {
   const XtensaRegisterInfo RI;
-  XtensaSubtarget &STI;
+  const XtensaSubtarget &STI;
 
 public:
-  XtensaInstrInfo(XtensaSubtarget &STI);
+  XtensaInstrInfo(const XtensaSubtarget &STI);
 
   void adjustStackPtr(unsigned SP, int64_t Amount, MachineBasicBlock &MBB,
                       MachineBasicBlock::iterator I) const;
@@ -42,15 +42,23 @@ public:
   // Return the XtensaRegisterInfo, which this class owns.
   const XtensaRegisterInfo &getRegisterInfo() const { return RI; }
 
+  Register isLoadFromStackSlot(const MachineInstr &MI,
+                               int &FrameIndex) const override;
+
+  Register isStoreToStackSlot(const MachineInstr &MI,
+                              int &FrameIndex) const override;
+
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                    const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,
                    bool KillSrc) const override;
+
   void storeRegToStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MBBI, Register SrcReg,
                            bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
                            const TargetRegisterInfo *TRI,
                            Register VReg) const override;
+
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MBBI, Register DestReg,
                             int FrameIdx, const TargetRegisterClass *RC,
@@ -79,8 +87,10 @@ public:
                      MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
+
   unsigned removeBranch(MachineBasicBlock &MBB,
                         int *BytesRemoved = nullptr) const override;
+
   unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
                         const DebugLoc &DL,
@@ -111,6 +121,8 @@ public:
   bool isBranch(const MachineBasicBlock::iterator &MI,
                 SmallVectorImpl<MachineOperand> &Cond,
                 const MachineOperand *&Target) const;
+
+  const XtensaSubtarget &getSubtarget() const { return STI; }
 };
 } // end namespace llvm
 

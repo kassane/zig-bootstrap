@@ -1,7 +1,5 @@
 //===- XtensaISelLowering.h - Xtensa DAG Lowering Interface -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -21,10 +19,10 @@
 #include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
+
 namespace XtensaISD {
 enum {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
-
   BR_T,
   BR_F,
 
@@ -39,6 +37,11 @@ enum {
   CALL,
   // WinABI Call version
   CALLW,
+
+  // Extract unsigned immediate. Operand 0 is value, operand 1
+  // is bit position of the field [0..31], operand 2 is bit size
+  // of the field [1..16]
+  EXTUI,
 
   // Floating point unordered compare conditions
   CMPUEQ,
@@ -69,29 +72,25 @@ enum {
   // Wraps a TargetGlobalAddress that should be loaded using PC-relative
   // accesses.  Operand 0 is the address.
   PCREL_WRAPPER,
+  RET,
 
-  // Return with a flag operand.  Operand 0 is the chain operand.
-  RET_FLAG,
   // WinABI Return
-  RETW_FLAG,
+  RETW,
 
   RUR,
 
-  // Selects between operand 0 and operand 1.  Operand 2 is the
-  // mask of condition-code values for which operand 0 should be
-  // chosen over operand 1; it has the same form as BR_CCMASK.
-  // Operand 3 is the flag operand.
-  SELECT,
+  // Select with condition operator - This selects between a true value and
+  // a false value (ops #2 and #3) based on the boolean result of comparing
+  // the lhs and rhs (ops #0 and #1) of a conditional expression with the
+  // condition code in op #4
   SELECT_CC,
   SELECT_CC_FP,
 
-  // Shift
-  SHL,
-  SRA,
-  SRL,
-  SRC,
-  SSL,
-  SSR,
+  // SRCL(R) performs shift left(right) of the concatenation of 2 registers
+  // and returns high(low) 32-bit part of 64-bit result
+  SRCL,
+  // Shift Right Combined
+  SRCR,
 
   BUILD_VEC,
   TRUNC,
@@ -140,9 +139,11 @@ public:
   getExceptionSelectorRegister(const Constant *PersonalityFn) const override;
 
   bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const override;
+
+  const char *getTargetNodeName(unsigned Opcode) const override;
+
   bool isFPImmLegal(const APFloat &Imm, EVT VT,
                     bool ForCodeSize) const override;
-  const char *getTargetNodeName(unsigned Opcode) const override;
 
   /// Returns the size of the platform's va_list object.
   unsigned getVaListSizeInBits(const DataLayout &DL) const override;
@@ -150,8 +151,10 @@ public:
   std::pair<unsigned, const TargetRegisterClass *>
   getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                StringRef Constraint, MVT VT) const override;
+
   TargetLowering::ConstraintType
   getConstraintType(StringRef Constraint) const override;
+
   TargetLowering::ConstraintWeight
   getSingleConstraintMatchWeight(AsmOperandInfo &info,
                                  const char *constraint) const override;
@@ -163,11 +166,13 @@ public:
   SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+
   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
                                bool isVarArg,
                                const SmallVectorImpl<ISD::InputArg> &Ins,
                                const SDLoc &DL, SelectionDAG &DAG,
                                SmallVectorImpl<SDValue> &InVals) const override;
+
   SDValue LowerCall(CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
 
@@ -192,6 +197,11 @@ public:
     return false;
   }
 
+  bool decomposeMulByConstant(LLVMContext &Context, EVT VT,
+                              SDValue C) const override;
+
+  const XtensaSubtarget &getSubtarget() const { return Subtarget; }
+
   MachineBasicBlock *
   EmitInstrWithCustomInserter(MachineInstr &MI,
                               MachineBasicBlock *BB) const override;
@@ -204,42 +214,56 @@ private:
   const XtensaSubtarget &Subtarget;
 
   SDValue LowerBR_JT(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerImmediate(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerImmediateFP(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerGlobalTLSAddress(GlobalAddressSDNode *Node,
                                 SelectionDAG &DAG) const;
-  SDValue LowerBlockAddress(BlockAddressSDNode *Node, SelectionDAG &DAG) const;
-  SDValue LowerJumpTable(JumpTableSDNode *JT, SelectionDAG &DAG) const;
-  SDValue LowerConstantPool(ConstantPoolSDNode *CP, SelectionDAG &DAG) const;
 
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue LowerCTPOP(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVACOPY(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerSTACKSAVE(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerSTACKRESTORE(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerShiftLeftParts(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerShiftRightParts(SDValue Op, SelectionDAG &DAG, bool IsSRA) const;
   SDValue LowerFunnelShift(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerATOMIC_FENCE(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerBITCAST(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerBitVecLOAD(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue getAddrPCRel(SDValue Op, SelectionDAG &DAG) const;
 
   CCAssignFn *CCAssignFnForCall(CallingConv::ID CC, bool IsVarArg) const;
 
-  // Implement EmitInstrWithCustomInserter for individual operation types.
   MachineBasicBlock *emitSelectCC(MachineInstr &MI,
                                   MachineBasicBlock *BB) const;
   MachineBasicBlock *emitAtomicSwap(MachineInstr &MI, MachineBasicBlock *BB,
